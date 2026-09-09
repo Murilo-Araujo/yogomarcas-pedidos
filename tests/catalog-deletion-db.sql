@@ -1,0 +1,58 @@
+-- Transactional integration test. Every fixture/change is rolled back.
+begin;
+do $$
+declare l uuid=gen_random_uuid(); p uuid=gen_random_uuid(); other_p uuid=gen_random_uuid();
+ a uuid=gen_random_uuid(); b uuid=gen_random_uuid(); replacement uuid=gen_random_uuid();
+ c uuid=gen_random_uuid(); o uuid=gen_random_uuid(); ev uuid=gen_random_uuid(); r uuid=gen_random_uuid();
+ code text='DELETE-'||gen_random_uuid(); fcode text='FLAVOR-'||gen_random_uuid();
+ result jsonb; snapshot jsonb; projection jsonb='{"packets":6,"surplus_max":90000}'; draft jsonb; metrics jsonb;
+begin
+ insert into public.yp_lines(id,name) values(l,'__deletion_test_'||l);
+ insert into public.yp_products(id,line_id,name,sku,has_flavors,package_price) values(p,l,'Fixture family',code,true,null),(other_p,l,'Fixture support','SUP-'||other_p,false,1000);
+ insert into public.yp_flavors(id,product_id,name,sku,package_price) values(a,p,'Test A',fcode,5836),(b,p,'Test B','FLAVOR-'||b,6260);
+ insert into public.yp_customers(id,phone,store_name,pin_hash,pin_salt) values(c,'5545'||lpad(floor(random()*1000000000)::text,9,'0'),'__deletion_test__','test-only','test-only');
+ insert into public.yp_customer_favorites(customer_id,flavor_id) values(c,a),(c,b);
+ insert into public.yp_upsell_rules(id,trigger_product_id,product_id,flavor_id,active) values(r,other_p,p,a,true);
+ update public.yp_settings set upsell_enabled=true,upsell_product_id=p,upsell_flavor_id=a,upsell_price=5000 where id=1;
+ snapshot=jsonb_build_array(jsonb_build_object('product_id',p,'flavor_id',a,'name','Fixture family · Test A','sku',code,'internal_code',fcode,'quantity',1,'mode','bundle','bundle_units',5,'units',5,'unit_price',29180,'line_total',29180));
+ insert into public.yp_orders(id,customer_id,public_number,client_token_hash,session_id,customer_name,company,phone,city,state,items,total,projection_snapshot,is_test)
+ values(o,c,'DELETE-'||o,'test-only',gen_random_uuid(),'Test','Test','5545000000001','Test','PR',snapshot,29180,projection,false);
+ insert into public.yp_events(id,session_id,type,product_id,flavor_id) values(ev,gen_random_uuid(),'add_to_cart',p,a);
+ draft=jsonb_build_array(jsonb_build_object('product_id',p,'flavor_id',a,'mode','package','quantity',2));
+ insert into public.yp_customer_carts(customer_id,items,total,status,revision) values(c,draft,11672,'active',1);
+ result=public.yp_delete_catalog_item('flavor',a,other_p);
+ assert not (result->>'deleted')::boolean,'foreign parent must not delete flavor';
+ result=public.yp_delete_catalog_item('flavor',a,p);
+ assert (result->>'deleted')::boolean,'flavor deleted';
+ assert (select deleted_at is not null and not active and not available from public.yp_flavors where id=a),'flavor hidden';
+ assert (select deleted_at is null from public.yp_flavors where id=b),'other flavor unchanged';
+ assert not exists(select 1 from public.yp_customer_favorites where flavor_id=a),'favorite removed';
+ assert (select not active from public.yp_upsell_rules where id=r),'flavor upsell disabled';
+ assert (select not upsell_enabled and upsell_flavor_id is null and upsell_product_id is null from public.yp_settings where id=1),'general upsell cleared';
+ insert into public.yp_flavors(id,product_id,name,sku,package_price) values(replacement,p,'Test A',fcode,5836);
+ begin update public.yp_flavors set active=true where id=a; raise exception 'deleted flavor reactivated'; exception when check_violation then null; end;
+ update public.yp_settings set upsell_enabled=true,upsell_product_id=p,upsell_flavor_id=b where id=1;
+ update public.yp_upsell_rules set flavor_id=b,active=true where id=r;
+ result=public.yp_delete_catalog_item('product',p);
+ assert (result->>'deleted')::boolean and (result->>'flavors_deleted')::integer=2,'product and its remaining flavors deleted';
+ assert (select deleted_at is not null and not active and not available from public.yp_products where id=p),'product hidden';
+ assert not exists(select 1 from public.yp_flavors where product_id=p and deleted_at is null),'all child flavors hidden';
+ assert not exists(select 1 from public.yp_customer_favorites where customer_id=c),'product favorites removed';
+ assert (select not active from public.yp_upsell_rules where id=r),'product upsell disabled';
+ assert (select not upsell_enabled and upsell_product_id is null and upsell_flavor_id is null from public.yp_settings where id=1),'product general upsell cleared';
+ assert (select items=snapshot and projection_snapshot=projection and total=29180 from public.yp_orders where id=o),'order snapshot unchanged';
+ assert exists(select 1 from public.yp_events where id=ev),'historical event preserved';
+ assert (select items=draft and revision=1 and status='active' from public.yp_customer_carts where customer_id=c),'saved draft unchanged';
+ metrics=public.yp_metrics(now()-interval '1 hour',now()+interval '1 hour');
+ assert exists(select 1 from jsonb_array_elements(metrics->'products') x where x->>'id'=p::text and (x->>'orders')::integer=1 and (x->>'deleted')::boolean),'product metrics retained';
+ metrics=public.yp_flavor_metrics(now()-interval '1 hour',now()+interval '1 hour');
+ assert exists(select 1 from jsonb_array_elements(metrics) x where x->>'id'=a::text and (x->>'orders')::integer=1 and (x->>'deleted')::boolean),'flavor metrics retained';
+ begin insert into public.yp_flavors(product_id,name,sku,package_price) values(p,'Blocked','BLOCK-'||gen_random_uuid(),1000); raise exception 'flavor added to deleted parent'; exception when check_violation then null; end;
+ begin update public.yp_products set active=true where id=p; raise exception 'deleted product reactivated'; exception when check_violation then null; end;
+ insert into public.yp_products(line_id,name,sku,package_price) values(l,'Corrected product',code,5836);
+ assert not (public.yp_delete_catalog_item('product',p)->>'deleted')::boolean,'repeat deletion is rejected';
+ assert not has_function_privilege('anon','public.yp_delete_catalog_item(text,uuid,uuid)','execute'),'anonymous deletion denied';
+ assert not has_function_privilege('authenticated','public.yp_delete_catalog_item(text,uuid,uuid)','execute'),'direct authenticated deletion denied';
+end $$;
+rollback;
+select 'catalog deletion checks passed; all fixtures rolled back' as verification;
