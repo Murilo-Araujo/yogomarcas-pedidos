@@ -75,6 +75,9 @@ Verificação: `npm run typecheck`, `npm run build:vercel` e `node --test tests/
 
 ## Fardos, códigos internos e equipe
 
+- **Produtos → Editar → Preço e rendimento → Permitir compra por fardo** controla a venda por fardo de cada produto, incluindo todos os seus sabores. Desativado, os clientes compram apenas por pacote/unidade; novos pedidos e a sincronização do carrinho validam essa regra no servidor.
+- Carrinhos antigos mostram os fardos bloqueados para remoção ou conversão explícita em pacotes, somando quantidades existentes. Repetir pedido informa os fardos indisponíveis; pedidos já salvos conservam seus valores e quantidades.
+- Aplicar `supabase/schema/product_bundle_availability.sql` antes da atualização da Edge Function. A coluna tem padrão `true`, mantendo todos os produtos existentes habilitados. Salvamentos de versões antigas que omitam a opção preservam a configuração atual.
 - Cada fardo contém **5 pacotes do mesmo sabor**. Preço do fardo = preço do pacote × 5, calculado na API e mantido por triggers no banco.
 - Os contadores de fardos e pacotes ficam juntos por sabor. O carrinho conserva as apresentações separadamente para permitir edição, mas soma os pacotes equivalentes na projeção e na mensagem do WhatsApp.
 - A mensagem agrupa cada sabor pelo código interno salvo no pedido. Edições futuras do catálogo não alteram códigos, preços ou quantidades históricos.

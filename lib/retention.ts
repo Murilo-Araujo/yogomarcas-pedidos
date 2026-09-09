@@ -22,7 +22,7 @@ export type CartOffer = {product_id:string;flavor_id:string|null;rule_id:string|
 
 /** Same eligibility and price calculation in the storefront and order endpoint. */
 export function cartOffer(catalog:Catalog, cart:CartItem[]):CartOffer|null {
- const regular=cart.filter(i=>!i.upsell&&i.quantity>0);
+ const regular=cart.filter(i=>!i.upsell&&i.quantity>0&&(i.mode!=='bundle'||catalog.products.find(p=>p.id===i.product_id)?.bundle_enabled!==false));
  if(!regular.length)return null;
  const candidates:CartOffer[]=[];
  const s=catalog.settings;
@@ -57,7 +57,7 @@ export function repeatOrder(items:OrderItem[],catalog:Catalog){
   const f=catalog.flavors.find(f=>f.id===item.flavor_id&&f.product_id===p?.id&&f.active&&f.available);
   const mode=item.mode;
   const price=mode==='bundle'?bundlePrice(f?f.package_price:p?.package_price):(f?f.package_price:p?.package_price);
-  if(!p||(p.has_flavors?!f:!!item.flavor_id)||!price||!['package','bundle'].includes(mode)||(mode==='bundle'&&!p.bundle_units)||!Number.isInteger(item.quantity)||item.quantity<1||item.quantity>999){unavailable.push(item.name);continue;}
+  if(!p||(p.has_flavors?!f:!!item.flavor_id)||!price||!['package','bundle'].includes(mode)||(mode==='bundle'&&(p.bundle_enabled===false||!p.bundle_units))||!Number.isInteger(item.quantity)||item.quantity<1||item.quantity>999){unavailable.push(item.name);continue;}
   if(price!==item.unit_price||(mode==='bundle'&&BUNDLE_UNITS!==item.bundle_units))changed.push(item.name);
   cart.push({product_id:p.id,flavor_id:f?.id||null,mode:mode as CartItem['mode'],quantity:item.quantity,upsell:false});
  }

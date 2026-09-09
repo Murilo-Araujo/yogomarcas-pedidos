@@ -62,7 +62,7 @@ async function rate(req:Request,b:any,action:string){
 }
 async function catalog(){
  const [lines,products,s,flavors,upsell_rules]=await Promise.all([db('yp_lines','active=eq.true&order=position,name'),db('yp_products','deleted_at=is.null&active=eq.true&order=position,name'),db('yp_settings','id=eq.1'),db('yp_flavors','deleted_at=is.null&active=eq.true&order=position,name&limit=10000'),db('yp_upsell_rules','active=eq.true&order=priority,id')]);
- const ids=new Set(lines.map((l:any)=>l.id));return {lines,upsell_rules,products:products.filter((p:any)=>ids.has(p.line_id)).map((p:any)=>({...p,bundle_units:BUNDLE_UNITS,bundle_price:bundlePrice(p.package_price)})),flavors:flavors.filter((f:any)=>products.some((p:any)=>p.id===f.product_id&&ids.has(p.line_id))).map((f:any)=>({...f,bundle_price:bundlePrice(f.package_price)})),settings:s[0]};
+ const ids=new Set(lines.map((l:any)=>l.id));return {lines,upsell_rules,products:products.filter((p:any)=>ids.has(p.line_id)).map((p:any)=>({...p,bundle_units:p.bundle_enabled===false?null:BUNDLE_UNITS,bundle_price:p.bundle_enabled===false?null:bundlePrice(p.package_price)})),flavors:flavors.filter((f:any)=>products.some((p:any)=>p.id===f.product_id&&ids.has(p.line_id))).map((f:any)=>({...f,bundle_price:products.find((p:any)=>p.id===f.product_id)?.bundle_enabled===false?null:bundlePrice(f.package_price)})),settings:s[0]};
 }
 async function createUser(email:string,password:string){return request('/auth/v1/admin/users',{method:'POST',body:JSON.stringify({email,password,email_confirm:true})});}
 
@@ -104,6 +104,7 @@ async function shoppingAction(req:Request,b:any,action:string){
    const key=i.product_id+':'+(i.flavor_id||'')+':'+i.mode;if(seen.has(key))throw new ApiError('Item repetido no carrinho.');seen.add(key);
    const p=cat.products.find((p:any)=>p.id===i.product_id),f=cat.flavors.find((f:any)=>f.id===i.flavor_id&&f.product_id===p?.id);
    if(!p||(p.has_flavors?!f:!!i.flavor_id))throw new ApiError('Um item saiu do catálogo. Revise o pedido.',409);
+   if(i.mode==='bundle'&&p.bundle_enabled===false)throw new ApiError(`${p.name} está disponível apenas por pacote. Revise os fardos do carrinho.`,409);
    const source=f||p;let price=i.mode==='bundle'?source.bundle_price:source.package_price;
    if(i.upsell===true){if(++offers>1||!matchesOffer(i,offer))throw new ApiError('A sugestão mudou. Revise o pedido.',409);price=offer!.price;}
    if(!integer(price,1)||(i.mode==='bundle'&&!integer(p.bundle_units,2,1000)))throw new ApiError('Um preço mudou. Revise o pedido.',409);
@@ -158,6 +159,7 @@ async function saveOrder(b:any){
   if(item.flavor_id&&!uuid(item.flavor_id))throw new ApiError('Sabor inválido.');
   const key=item.product_id+':'+(item.flavor_id||'')+':'+item.mode;if(seen.has(key))throw new ApiError('Produto repetido no pedido.');seen.add(key);
   const parent=products.find((p:any)=>p.id===item.product_id);if(!parent?.available)throw new ApiError('Um produto ficou indisponível. Revise o carrinho.',409);
+  if(item.mode==='bundle'&&parent.bundle_enabled===false)throw new ApiError(`${parent.name} está disponível apenas por pacote. Revise os fardos do carrinho.`,409);
   const f=flavors.find((f:any)=>f.id===item.flavor_id&&f.product_id===parent.id);
   if(parent.has_flavors?(!f||!f.available):!!item.flavor_id)throw new ApiError('Escolha um sabor disponível desta linha.',409);
   const p=f?{...parent,package_price:f.package_price,bundle_price:f.bundle_price,package_weight_grams:f.package_weight_grams}:parent;
@@ -276,12 +278,13 @@ Deno.serve(async(req:Request)=>{
   if(action==='save_product'){
    const p=b.product||{};if(!str(p.name)||!str(p.sku)||!uuid(p.line_id))throw new ApiError('Preencha nome, código e linha.');
    const nullable=(v:any,min:number)=>v===null||integer(v,min,20000000);
+   if(p.bundle_enabled!==undefined&&typeof p.bundle_enabled!=='boolean')throw new ApiError('Informe se a compra por fardo está permitida.');
    if(!nullable(p.package_price,1))throw new ApiError('Confira os preços e a composição do fardo.');
    if(!/^[A-Za-z0-9][A-Za-z0-9._/-]{0,59}$/.test(str(p.sku,61)))throw new ApiError('Informe um código interno válido, com até 60 caracteres.');
    const img=str(p.image_url,2000);if(img&&!/^https:\/\//.test(img)&&!/^\/assets\/[a-zA-Z0-9._-]+$/.test(img))throw new ApiError('Informe uma imagem HTTPS válida.');
    const yg=p.yield_grams??null,ym=p.yield_min_grams??null;if(!((yg===null&&ym===null)||(integer(yg,1,100000)&&integer(ym,1,yg))))throw new ApiError('Confira a faixa de rendimento por pacote.');
    if(!(p.package_weight_grams==null||integer(p.package_weight_grams,1,100000)))throw new ApiError('Confira o peso.');
-   const data={has_flavors:p.has_flavors===true,package_weight_grams:p.package_weight_grams??null,yield_grams:yg,yield_min_grams:ym,line_id:p.line_id,name:str(p.name),sku:str(p.sku,60).toUpperCase(),description:str(p.description,2000),image_url:img,package_label:str(p.package_label,40)||'Pacote',package_price:p.package_price,bundle_units:BUNDLE_UNITS,bundle_price:bundlePrice(p.package_price),active:p.active===true,available:p.available===true,position:integer(p.position,0,999)?p.position:0,updated_at:new Date().toISOString()};
+   const data={...(p.bundle_enabled===undefined?{}:{bundle_enabled:p.bundle_enabled}),has_flavors:p.has_flavors===true,package_weight_grams:p.package_weight_grams??null,yield_grams:yg,yield_min_grams:ym,line_id:p.line_id,name:str(p.name),sku:str(p.sku,60).toUpperCase(),description:str(p.description,2000),image_url:img,package_label:str(p.package_label,40)||'Pacote',package_price:p.package_price,bundle_units:BUNDLE_UNITS,bundle_price:bundlePrice(p.package_price),active:p.active===true,available:p.available===true,position:integer(p.position,0,999)?p.position:0,updated_at:new Date().toISOString()};
    if(p.id&&!uuid(p.id))throw new ApiError('Produto inválido.');const saved=(await db('yp_products',p.id?`id=eq.${p.id}&deleted_at=is.null`:'',p.id?'PATCH':'POST',data))[0];if(!saved)throw new ApiError('Este produto foi excluído. Atualize o catálogo.',409);return json(saved);
   }
   if(action==='save_flavor'){
