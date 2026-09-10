@@ -514,3 +514,20 @@ body {
 .choice-menu [data-slot=select-scroll-up-button],.choice-menu [data-slot=select-scroll-down-button]{color:var(--brand);min-height:28px;background:#fff}
 @media(max-width:540px){.shop-menu-button{padding:10px 8px}.shop-menu-content{width:278px}.sort-control>.choice[data-slot=select-trigger]{width:132px;padding:10px;font-size:14px!important}.choice-menu-item{min-height:44px}}
 @media(prefers-reduced-motion:reduce){.shop-menu-button,.shop-menu-button>svg:last-child,.shop-menu-item,.choice[data-slot=select-trigger]{transition:none}}
+
+/* Keep long flavor names from pushing the quantity controls onto another row. */
+.flavor-picker .flavor-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px}
+.flavor-picker .flavor-info,.flavor-picker .flavor-name-row{min-width:0}
+.flavor-picker .flavor-name-row strong{min-width:0;white-space:normal;overflow-wrap:anywhere}
+.flavor-picker .favorite-button{flex-shrink:0}
+.flavor-picker .flavor-row-controls{min-width:0;max-width:100%;margin:0;align-items:flex-end}
+.flavor-picker .flavor-row-controls>b{white-space:nowrap}
+.flavor-picker .flavor-row-controls .dual-quantity{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:12px;max-width:100%}
+.flavor-picker .quantity-field{min-width:0}
+@media(max-width:540px){
+ .flavor-picker .flavor-row{grid-template-columns:minmax(0,1fr);gap:10px}
+ .flavor-picker .flavor-row-controls{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:10px;width:100%}
+ .flavor-picker .flavor-row-controls>b{grid-column:2;grid-row:1;align-self:center}
+ .flavor-picker .flavor-row-controls .dual-quantity{grid-column:1/-1;grid-row:2;justify-self:end;gap:10px;margin:0}
+ .flavor-picker .dual-quantity .quantity{max-width:100%}
+}
