@@ -1,4 +1,4 @@
-import {BUNDLE_UNITS,bundlePrice,cartOffer,matchesOffer} from './retention';
+import {BUNDLE_UNITS,bundlePrice,cartOffers,matchesOffer} from './retention';
 import {sessionStore} from './browser-storage';
 import { API_URL, SUPABASE_KEY, SUPABASE_URL } from './config';
 export type Line={id:string;name:string;description:string;position:number;active:boolean};
@@ -26,8 +26,10 @@ export function groupCart(items:ResolvedItem[]):CartGroup[]{const groups=new Map
 export function setVariantQuantity(cart:CartItem[],item:Pick<CartItem,'product_id'|'flavor_id'>,mode:CartItem['mode'],quantity:number):CartItem[]{
  if(!Number.isInteger(quantity)||quantity<0||quantity>999)throw new Error('Use uma quantidade inteira de 0 a 999.');
  const target={product_id:item.product_id,flavor_id:item.flavor_id||null,mode},key=cartKey(target),group=variantKey(item);
- const next=cart.filter(i=>cartKey(i)!==key).map(i=>variantKey(i)===group?{...i,upsell:false,upsell_rule_id:null}:{...i});
- if(quantity)next.push({...target,quantity,upsell:false});
+ const siblings=cart.filter(i=>variantKey(i)===group),offered=siblings[0]?.upsell&&siblings.every(i=>i.upsell&&(i.upsell_rule_id||null)===(siblings[0].upsell_rule_id||null));
+ const flags={upsell:!!offered,upsell_rule_id:offered?siblings[0].upsell_rule_id||null:null};
+ const next=cart.filter(i=>cartKey(i)!==key).map(i=>variantKey(i)===group?{...i,...flags}:{...i});
+ if(quantity)next.push({...target,quantity,...flags});
  if(next.length>200)throw new Error('O pedido pode ter até 200 apresentações.');
  return next.some(i=>!i.upsell)?next:next.map(i=>({...i,upsell:false,upsell_rule_id:null}));
 }
@@ -41,12 +43,12 @@ export function convertBundleToPackages(cart:CartItem[],item:CartItem):CartItem[
 }
 export function startingPrice(p:Product,flavors:Flavor[]){const prices=p.has_flavors?flavors.filter(f=>f.product_id===p.id&&f.active&&f.available&&f.package_price).map(f=>f.package_price!):p.package_price?[p.package_price]:[];return prices.length?Math.min(...prices):null;}
 export function resolveCart(cart:CartItem[],catalog:Catalog):ResolvedItem[]{
- const offer=cartOffer(catalog,cart),upsellCount=cart.filter(i=>i.upsell).length;
- return cart.flatMap(i=>{const parent=catalog.products.find(p=>p.id===i.product_id&&p.active);if(!parent||i.mode==='bundle'&&parent.bundle_enabled===false)return[];const f=catalog.flavors?.find(f=>f.id===i.flavor_id&&f.product_id===parent.id&&f.active);if(parent.has_flavors?!f:!!i.flavor_id)return[];const p=variantProduct(parent,f);const price=i.upsell?(upsellCount===1&&matchesOffer(i,offer)?offer!.price:null):i.mode==='bundle'?p.bundle_price:p.package_price;return [{...i,product:p,flavor:f,unit_price:price??0,units:i.quantity*(i.mode==='bundle'?(p.bundle_units??0):1)}];});
+ const offers=cartOffers(catalog,cart);
+ return cart.flatMap(i=>{const parent=catalog.products.find(p=>p.id===i.product_id&&p.active);if(!parent||i.mode==='bundle'&&parent.bundle_enabled===false)return[];const f=catalog.flavors?.find(f=>f.id===i.flavor_id&&f.product_id===parent.id&&f.active);if(parent.has_flavors?!f:!!i.flavor_id)return[];const p=variantProduct(parent,f),offer=i.upsell?offers.find(o=>matchesOffer(i,o)):null;const price=i.upsell?(offer?offer.price*(i.mode==='bundle'?BUNDLE_UNITS:1):null):i.mode==='bundle'?p.bundle_price:p.package_price;return [{...i,product:p,flavor:f,unit_price:price??0,units:i.quantity*(i.mode==='bundle'?(p.bundle_units??0):1)}];});
 }
 export class PortalError extends Error{constructor(message:string,public status:number){super(message);}}
 async function decode(r:Response){const j=await r.json().catch(()=>({error:'Serviço indisponível. Tente novamente.'}));if(!r.ok)throw new PortalError(j.error||j.msg||j.error_description||'Não foi possível concluir.',r.status);return j;}
-export async function getCatalog():Promise<Catalog>{return decode(await fetch(API_URL,{headers:{apikey:SUPABASE_KEY},cache:'no-store'}));}
+export async function getCatalog():Promise<Catalog>{return decode(await fetch(API_URL+'?offers=2',{headers:{apikey:SUPABASE_KEY},cache:'no-store'}));}
 let refreshTask:Promise<Session>|null=null;
 export async function getSession():Promise<Session|null>{
  let s:Session|null=null;try{s=JSON.parse(sessionStore.getItem('yp-auth')||'null');}catch{}

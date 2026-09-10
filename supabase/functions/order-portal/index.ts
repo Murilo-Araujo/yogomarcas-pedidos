@@ -1,4 +1,4 @@
-import {BUNDLE_UNITS,bundlePrice,orderMessage,cartOffer,matchesOffer} from '../../../lib/retention.ts';
+import {BUNDLE_UNITS,bundlePrice,orderMessage,cartOffers,matchesOffer} from '../../../lib/retention.ts';
 import {calculateProjection} from '../../../lib/projection.ts';
 // Public catalogue/actions and explicitly authenticated administration.
 // Service credentials stay in this Supabase Edge Function.
@@ -64,6 +64,16 @@ async function catalog(){
  const [lines,products,s,flavors,upsell_rules]=await Promise.all([db('yp_lines','active=eq.true&order=position,name'),db('yp_products','deleted_at=is.null&active=eq.true&order=position,name'),db('yp_settings','id=eq.1'),db('yp_flavors','deleted_at=is.null&active=eq.true&order=position,name&limit=10000'),db('yp_upsell_rules','active=eq.true&order=priority,id')]);
  const ids=new Set(lines.map((l:any)=>l.id));return {lines,upsell_rules,products:products.filter((p:any)=>ids.has(p.line_id)).map((p:any)=>({...p,bundle_units:p.bundle_enabled===false?null:BUNDLE_UNITS,bundle_price:p.bundle_enabled===false?null:bundlePrice(p.package_price)})),flavors:flavors.filter((f:any)=>products.some((p:any)=>p.id===f.product_id&&ids.has(p.line_id))).map((f:any)=>({...f,bundle_price:products.find((p:any)=>p.id===f.product_id)?.bundle_enabled===false?null:bundlePrice(f.package_price)})),settings:s[0]};
 }
+function upsellRuleInput(r:any,cat:any){
+ if(r.id&&!uuid(r.id)||!uuid(r.trigger_product_id)||!uuid(r.product_id)||r.trigger_flavor_id&&!uuid(r.trigger_flavor_id)||r.flavor_id&&!uuid(r.flavor_id)||!(r.price===null||integer(r.price,1))||!integer(r.priority,0,999))throw new ApiError('Confira a regra de sugestão.');
+ const p=cat.products.find((p:any)=>p.id===r.product_id),trigger=cat.products.find((p:any)=>p.id===r.trigger_product_id);
+ const f=cat.flavors.find((f:any)=>f.id===r.flavor_id&&f.product_id===p?.id),triggerFlavor=cat.flavors.find((f:any)=>f.id===r.trigger_flavor_id&&f.product_id===trigger?.id);
+ if(r.trigger_product_id===r.product_id&&(!r.flavor_id||r.trigger_flavor_id===r.flavor_id))throw new ApiError('Escolha um sabor diferente como complemento.');
+ if(r.active&&(!trigger?.available||r.trigger_flavor_id&&(!trigger.has_flavors||!triggerFlavor?.available)||!p?.available||(p.has_flavors?!f?.available:!!r.flavor_id)))throw new ApiError('Escolha produtos e sabores disponíveis.');
+ const price=f?.package_price??p?.package_price;
+ if(r.active&&(!price||r.price&&r.price>price))throw new ApiError('A sugestão precisa de preço válido, até o preço regular.');
+ return {trigger_product_id:r.trigger_product_id,trigger_flavor_id:r.trigger_flavor_id||null,product_id:r.product_id,flavor_id:r.flavor_id||null,title:str(r.title,100)||'Complete seu pedido',description:str(r.description,300),price:r.price,priority:r.priority,active:r.active===true};
+}
 async function createUser(email:string,password:string){return request('/auth/v1/admin/users',{method:'POST',body:JSON.stringify({email,password,email_confirm:true})});}
 
 function phoneNumber(value:unknown){let n=str(value,40).replace(/\D/g,'');if(n.length===10||n.length===11)n='55'+n;if(!/^55[1-9]\d{9,10}$/.test(n))throw new ApiError('Informe um telefone brasileiro com DDD.');return n;}
@@ -98,15 +108,15 @@ async function shoppingAction(req:Request,b:any,action:string){
  if(action==='customer_cart')return {cart:(await db('yp_customer_carts',`customer_id=eq.${c.id}&select=revision,items,total,status,updated_at`))[0]||null};
  if(action==='customer_cart_save'){
   if(!integer(b.revision,0,Number.MAX_SAFE_INTEGER)||!Array.isArray(b.items)||b.items.length>200)throw new ApiError('Carrinho inválido.');
-  const cat=await catalog(),offer=cartOffer(cat,b.items),seen=new Set();let offers=0;
+  const cat=await catalog(),offers=cartOffers(cat,b.items),seen=new Set();
   const items=b.items.map((i:any)=>{
    if(!uuid(i.product_id)||(i.flavor_id&&!uuid(i.flavor_id))||!['package','bundle'].includes(i.mode)||!integer(i.quantity,1,999))throw new ApiError('Confira os itens do carrinho.');
    const key=i.product_id+':'+(i.flavor_id||'')+':'+i.mode;if(seen.has(key))throw new ApiError('Item repetido no carrinho.');seen.add(key);
    const p=cat.products.find((p:any)=>p.id===i.product_id),f=cat.flavors.find((f:any)=>f.id===i.flavor_id&&f.product_id===p?.id);
    if(!p||(p.has_flavors?!f:!!i.flavor_id))throw new ApiError('Um item saiu do catálogo. Revise o pedido.',409);
    if(i.mode==='bundle'&&p.bundle_enabled===false)throw new ApiError(`${p.name} está disponível apenas por pacote. Revise os fardos do carrinho.`,409);
-   const source=f||p;let price=i.mode==='bundle'?source.bundle_price:source.package_price;
-   if(i.upsell===true){if(++offers>1||!matchesOffer(i,offer))throw new ApiError('A sugestão mudou. Revise o pedido.',409);price=offer!.price;}
+   const source=f||p,offer=offers.find(o=>matchesOffer(i,o));let price=i.mode==='bundle'?source.bundle_price:source.package_price;
+   if(i.upsell===true){if(!offer)throw new ApiError('A sugestão mudou. Revise o pedido.',409);price=offer.price*(i.mode==='bundle'?BUNDLE_UNITS:1);}
    if(!integer(price,1)||(i.mode==='bundle'&&!integer(p.bundle_units,2,1000)))throw new ApiError('Um preço mudou. Revise o pedido.',409);
    return {product_id:p.id,flavor_id:f?.id||null,mode:i.mode,quantity:i.quantity,upsell:i.upsell===true,upsell_rule_id:i.upsell===true?offer!.rule_id:null,name:p.name+(f?' · '+f.name:''),unit_price:price,bundle_units:i.mode==='bundle'?p.bundle_units:1};
   });
@@ -152,7 +162,7 @@ async function saveOrder(b:any){
  const c={...(b.customer||{}),company:profile.store_name,phone:profile.phone}; const phone=profile.phone;
  if(str(c.name).length<2||str(c.company).length<2||phone.length<10||phone.length>13||str(c.city).length<2||!['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'].includes(c.state))throw new ApiError('Preencha nome, empresa, WhatsApp, cidade e estado.');
  if(!Array.isArray(b.items)||!b.items.length||b.items.length>200)throw new ApiError('Adicione produtos ao pedido.');
- const cat=await catalog();const {products,flavors,settings}=cat;const offer=cartOffer(cat,b.items); if(!settings.ordering_enabled)throw new ApiError('O catálogo está sendo atualizado. Fale com nossa equipe.',409);
+ const cat=await catalog();const {products,flavors,settings}=cat;const offers=cartOffers(cat,b.items); if(!settings.ordering_enabled)throw new ApiError('O catálogo está sendo atualizado. Fale com nossa equipe.',409);
  const seen=new Set(); let upsells=0;
  const items=b.items.map((item:any)=>{
   if(!uuid(item.product_id)||!['package','bundle'].includes(item.mode)||!integer(item.quantity,1,999))throw new ApiError('Confira as quantidades do pedido.');
@@ -164,10 +174,10 @@ async function saveOrder(b:any){
   if(parent.has_flavors?(!f||!f.available):!!item.flavor_id)throw new ApiError('Escolha um sabor disponível desta linha.',409);
   const p=f?{...parent,package_price:f.package_price,bundle_price:f.bundle_price,package_weight_grams:f.package_weight_grams}:parent;
   let price=item.mode==='bundle'?p.bundle_price:p.package_price;
-  const upsell=item.upsell===true;
+  const upsell=item.upsell===true,offer=offers.find(o=>matchesOffer(item,o));
   if(upsell){
-   upsells++;if(upsells>1||!matchesOffer(item,offer))throw new ApiError('A sugestão do carrinho mudou. Revise seu pedido.',409);
-   price=offer!.price;
+   upsells++;if(!offer)throw new ApiError('A sugestão do carrinho mudou. Revise seu pedido.',409);
+   price=offer.price*(item.mode==='bundle'?BUNDLE_UNITS:1);
   }
   if(!integer(price,1)||item.mode==='bundle'&&!integer(p.bundle_units,2,1000))throw new ApiError('Um preço está em atualização. Revise o carrinho.',409);
   if(item.unit_price!==price)throw new ApiError('Os preços foram atualizados. Revise os novos valores antes de continuar.',409);
@@ -188,7 +198,7 @@ const message=orderMessage;
 Deno.serve(async(req:Request)=>{
  if(req.method==='OPTIONS')return new Response('ok',{headers:cors});
  try{
-  if(req.method==='GET')return json(await catalog());
+  if(req.method==='GET'){const cat=await catalog();if(new URL(req.url).searchParams.get('offers')!=='2')cat.upsell_rules=cat.upsell_rules.filter((r:any)=>!r.trigger_flavor_id&&r.trigger_product_id!==r.product_id);return json(cat);}
   if(req.method!=='POST')throw new ApiError('Método não permitido.',405);
   if(Number(req.headers.get('content-length')||0)>7500000)throw new ApiError('Arquivo muito grande.');
   const reader=req.body?.getReader();let size=0;const chunks:Uint8Array[]=[];
@@ -245,11 +255,7 @@ Deno.serve(async(req:Request)=>{
    if(!rows.length)throw new ApiError('Este carrinho foi atualizado. Recarregue a lista.',409);return json({ok:true});
   }
   if(action==='save_upsell_rule'){
-   const r=b.rule||{};if(r.id&&!uuid(r.id)||!uuid(r.trigger_product_id)||!uuid(r.product_id)||r.trigger_product_id===r.product_id||r.flavor_id&&!uuid(r.flavor_id)||!(r.price===null||integer(r.price,1))||!integer(r.priority,0,999))throw new ApiError('Confira a regra de sugestão.');
-   const cat=await catalog(),p=cat.products.find((p:any)=>p.id===r.product_id),trigger=cat.products.find((p:any)=>p.id===r.trigger_product_id),f=cat.flavors.find((f:any)=>f.id===r.flavor_id&&f.product_id===p?.id);
-   if(r.active&&(!trigger||!p?.available||(p.has_flavors?!f?.available:!!r.flavor_id)))throw new ApiError('Escolha produtos e sabores disponíveis.');
-   const price=f?.package_price??p?.package_price;if(r.active&&(!price||r.price&&r.price>price))throw new ApiError('A sugestão precisa de preço válido, até o preço regular.');
-   const value={trigger_product_id:r.trigger_product_id,product_id:r.product_id,flavor_id:r.flavor_id||null,title:str(r.title,100)||'Complete seu pedido',description:str(r.description,300),price:r.price,priority:r.priority,active:r.active===true};
+   const r=b.rule||{},value=upsellRuleInput(r,await catalog());
    return json((await db('yp_upsell_rules',r.id?`id=eq.${r.id}`:'',r.id?'PATCH':'POST',value))[0]);
   }
   if(action==='toggle_contextual_upsell'){await db('yp_settings','id=eq.1','PATCH',{contextual_upsell_enabled:b.enabled===true});return json({ok:true});}
