@@ -1,0 +1,16 @@
+{
+  "verified_pdf_items": 149,
+  "public_flavors": 148,
+  "base_neutra_products": 1,
+  "price_changes": 97,
+  "weight_changes": 0,
+  "bundle_price_changes": 97,
+  "disabled_extra_flavors": [
+    "AÇAÍ C/ GUARANÁ",
+    "ACEROLA"
+  ],
+  "order_history_unchanged": true,
+  "lubricant_unchanged": true,
+  "public_api_cache": "no-store",
+  "errors": []
+}

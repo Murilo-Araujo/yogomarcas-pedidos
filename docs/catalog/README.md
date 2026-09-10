@@ -1,3 +1,5 @@
+> Revisão atual: [auditoria de 10/09/2026](audits/2026-09-10/README.md). Os valores de 05/09 abaixo são históricos; não reaplicar o importador antigo.
+
 # Catálogo por linhas — 05/09/2026
 
 Importação solicitada pelo responsável, a partir dos quatro PDFs comerciais anexados. O catálogo institucional foi inspecionado visualmente; não contém preços ou composição de fardos.
