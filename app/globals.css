@@ -515,19 +515,53 @@ body {
 @media(max-width:540px){.shop-menu-button{padding:10px 8px}.shop-menu-content{width:278px}.sort-control>.choice[data-slot=select-trigger]{width:132px;padding:10px;font-size:14px!important}.choice-menu-item{min-height:44px}}
 @media(prefers-reduced-motion:reduce){.shop-menu-button,.shop-menu-button>svg:last-child,.shop-menu-item,.choice[data-slot=select-trigger]{transition:none}}
 
-/* Keep long flavor names from pushing the quantity controls onto another row. */
-.flavor-picker .flavor-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px}
-.flavor-picker .flavor-info,.flavor-picker .flavor-name-row{min-width:0}
-.flavor-picker .flavor-name-row strong{min-width:0;white-space:normal;overflow-wrap:anywhere}
-.flavor-picker .favorite-button{flex-shrink:0}
-.flavor-picker .flavor-row-controls{min-width:0;max-width:100%;margin:0;align-items:flex-end}
-.flavor-picker .flavor-row-controls>b{white-space:nowrap}
-.flavor-picker .flavor-row-controls .dual-quantity{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:12px;max-width:100%}
-.flavor-picker .quantity-field{min-width:0}
+/* Keep each purchase option, its price and its counter together. */
+.flavor-picker{gap:18px;min-width:0}
+.flavor-purchase-guide{display:flex;align-items:flex-start;gap:12px;padding:15px 16px;border-radius:12px;background:#f2eef9;color:var(--brand)}
+.flavor-purchase-guide>svg{flex-shrink:0;margin-top:1px}
+.flavor-purchase-guide strong{display:block;font-size:15px;line-height:1.4;font-weight:650}
+.flavor-purchase-guide p{margin:4px 0 0;font-size:14px;line-height:1.5;color:#6c627d}
+.flavor-picker .flavor-search input{font-size:16px}
+.flavor-picker .flavor-list-heading{align-items:center;font-size:14px}
+.flavor-list-heading h3{font-size:16px;color:var(--ink);font-weight:600}
+.flavor-picker .flavor-list{gap:14px}
+.flavor-picker .flavor-row{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;padding:18px;border:1px solid #e4deed;border-radius:16px;background:#fff;align-items:stretch}
+.flavor-picker .flavor-row.picked{border-color:#9780c3;box-shadow:0 0 0 1px #9780c3;background:#fff}
+.flavor-card-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;min-width:0}
+.flavor-picker .flavor-info{min-width:0}
+.flavor-picker .flavor-info>strong{font-size:16px;line-height:1.45;font-weight:650;color:var(--ink);white-space:normal;overflow-wrap:anywhere}
+.flavor-picker .flavor-info>small{padding:0;font-size:14px;line-height:1.5;margin:4px 0 0}
+.flavor-picker .favorite-button{flex-shrink:0;width:38px;height:38px;margin:-5px -5px 0 0}
+.flavor-picker .dual-quantity-priced{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,8.25rem),1fr));align-items:stretch;gap:12px;width:100%;min-width:0;margin:0}
+.flavor-picker .dual-quantity-priced .quantity-field{display:flex;flex-direction:column;gap:8px;min-width:0;padding:14px;border:1px solid #e7e2ed;border-radius:11px;background:#faf9fc}
+.flavor-picker .dual-quantity-priced .quantity-field[data-selected=true]{border-color:#c5b5df;background:#f4f0fb}
+.quantity-option-title{display:flex;align-items:center;gap:7px;font-size:14px;font-weight:600;line-height:1.4;color:var(--ink)}
+.quantity-option-title svg{color:var(--brand);flex-shrink:0}
+.quantity-option-description{flex:1;min-width:0}
+.quantity-option-unit{display:block;font-size:13px;line-height:1.4;color:var(--subtle)}
+.flavor-picker .quantity-option-price{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 4px;margin:8px 0 4px;font-size:19px;font-weight:650;line-height:1.35;letter-spacing:-.35px;color:var(--ink);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.quantity-option-price>span{font-size:13px;font-weight:400;letter-spacing:0;color:var(--subtle)}
+.flavor-picker .dual-quantity-priced .quantity{display:grid;grid-template-columns:40px minmax(0,1fr) 40px;align-items:center;width:100%;height:44px;min-width:0;border:1px solid #d9d0e5;border-radius:8px;background:#fff;overflow:hidden}
+.flavor-picker .dual-quantity-priced .quantity input{width:100%;min-width:0;height:42px;font-size:16px;line-height:1.2;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;padding:0;border:0;border-radius:0;background:transparent}
+.flavor-picker .dual-quantity-priced .quantity button{display:flex;align-items:center;justify-content:center;width:40px;height:42px;min-height:42px;color:var(--brand);border-radius:0}
+.flavor-picker .dual-quantity-priced .quantity button:hover:not(:disabled){background:#eee8f8}
+.flavor-picker .dual-quantity-priced .quantity button:disabled{opacity:.35}
+.flavor-picker .dual-quantity-priced .quantity input:disabled{color:var(--subtle)}
+.flavor-picker .dual-quantity-priced .quantity:focus-within{outline:2px solid var(--brand);outline-offset:2px}
+.flavor-picker .dual-quantity-priced .quantity button:focus-visible{outline:2px solid var(--brand);outline-offset:-3px}
+.flavor-row-total{display:flex;justify-content:space-between;align-items:center;gap:14px;border-top:1px solid #ebe5f2;padding-top:14px;font-size:14px;line-height:1.5;font-variant-numeric:tabular-nums}
+.flavor-row-total>div{min-width:0}
+.flavor-row-total>div:first-child>span{font-weight:500;overflow-wrap:anywhere}
+.flavor-picker .flavor-row-total small{padding:0;margin:3px 0 0;font-size:13px;color:var(--subtle)}
+.flavor-row-total>div:last-child{text-align:right;flex-shrink:0}
+.flavor-row-total>div:last-child>span{display:block;font-size:13px;color:var(--subtle)}
+.flavor-picker .flavor-row-total strong{font-size:17px;font-weight:650;color:var(--brand)}
 @media(max-width:540px){
- .flavor-picker .flavor-row{grid-template-columns:minmax(0,1fr);gap:10px}
- .flavor-picker .flavor-row-controls{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:10px;width:100%}
- .flavor-picker .flavor-row-controls>b{grid-column:2;grid-row:1;align-self:center}
- .flavor-picker .flavor-row-controls .dual-quantity{grid-column:1/-1;grid-row:2;justify-self:end;gap:10px;margin:0}
- .flavor-picker .dual-quantity .quantity{max-width:100%}
+ .flavor-picker .flavor-row{padding:14px;gap:14px}
+ .flavor-picker .dual-quantity-priced{gap:10px}
+ .flavor-picker .dual-quantity-priced .quantity-field{padding:11px}
+ .flavor-picker .quantity-option-price{font-size:17px}
+ .flavor-purchase-guide{padding:14px;gap:10px}
+ .flavor-row-total{gap:10px;flex-wrap:wrap}
+ .flavor-row-total>div:last-child{margin-left:auto}
 }
