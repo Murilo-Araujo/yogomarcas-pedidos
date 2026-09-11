@@ -2,6 +2,14 @@
 
 Catálogo B2B em português, com carrinho local, finalização no WhatsApp e administração protegida pelo Supabase Auth.
 
+## Catálogo público
+
+`https://pedidos.yogomarcas.com.br/catalogo` apresenta as linhas, fotos, descrições, pesos e sabores ativos sem cadastro, preços ou carrinho. A busca por linha/sabor e os filtros funcionam sem sessão e não leem nem gravam dados da loja no navegador. O logotipo e a recuperação de erros mantêm o visitante em `/catalogo`.
+
+A página consulta o catálogo vigente no servidor a cada visita e envia ao navegador apenas os campos permitidos por `lib/public-catalog.ts`. Preços, ofertas, configurações comerciais e códigos internos não entram no HTML nem nos dados serializados da página. Linhas/produtos/sabores ocultos ficam de fora; itens ativos temporariamente indisponíveis permanecem identificados. Alterações no cadastro aparecem na próxima visita, sem republicação. A rota exige o runtime Next.js da Vercel e não é compatível com exportação estática.
+
+Verificação: `node --test tests/public-catalog.test.cjs`, `npm run typecheck` e `npm run build:vercel`.
+
 ## Operação
 
 1. Abra o link privado de ativação entregue ao responsável e crie o primeiro acesso. O token é de uso único, expira e nunca é incluído no código.
