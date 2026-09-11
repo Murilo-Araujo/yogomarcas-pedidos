@@ -152,8 +152,7 @@ export default function Storefront(){
   {!cart.length?<div className="empty-cart order-empty"><span className="order-empty-icon"><ShoppingBag size={38} strokeWidth={1.5} aria-hidden="true"/></span><h3>Seu próximo pedido começa aqui</h3><p>Explore as linhas e escolha os sabores para sua loja.</p><button type="button" className="btn primary" onClick={()=>setCartOpen(false)}>Escolher produtos<ArrowRight size={18}/></button></div>:<>
    {!checkout&&<>
     <div className="order-items-heading"><h2>Itens selecionados</h2><button type="button" onClick={()=>setCartOpen(false)}><Plus size={16} aria-hidden="true"/>Adicionar itens</button></div>
-    {grouped.some(group=>group.item.product.bundle_enabled!==false)&&<p className="order-pack-note"><Package size={17} aria-hidden="true"/><span><strong>1 fardo = 5 pacotes</strong> do mesmo sabor. Combine com pacotes avulsos.</span></p>}
-    <fieldset className="cart-fieldset order-product-list" disabled={!!profile&&!cartSync.loaded||sending} aria-label="Itens do pedido">
+    <fieldset className="cart-fieldset order-product-list order-review-list" disabled={!!profile&&!cartSync.loaded||sending} aria-label="Itens do pedido">
      {grouped.map(group=><CartRow key={group.key} group={group} onChange={(mode,quantity)=>updateGroup(group.item,mode,quantity)} onRemove={()=>removeGroup(group.item)}/>)}
      {unresolved.map(item=>{
       const product=data?.products.find(p=>p.id===item.product_id),flavor=data?.flavors.find(f=>f.id===item.flavor_id&&f.product_id===product?.id),packageVariant=data?resolveCart([{...item,mode:'package',upsell:false}],data)[0]:undefined;

@@ -12,8 +12,9 @@ const retention=load('lib/retention.ts');
 const portal=load('lib/portal.ts',{'./retention':retention});
 const shared={'react':React,'react/jsx-runtime':require('react/jsx-runtime'),'lucide-react':require('lucide-react'),'@/lib/portal':portal};
 const controls=load('components/store/controls.tsx',shared);
-const suggestion=load('components/store/cart-suggestion.tsx',{...shared,'./controls':controls});
-const CartRow=load('components/store/cart-row.tsx',{...shared,'./controls':controls,'./cart-suggestion':suggestion}).default;
+const collapsible=load('components/ui/collapsible.tsx',{...shared,'radix-ui':require('radix-ui')});
+const rowDeps={...shared,'./controls':controls,'@/components/ui/collapsible':collapsible};
+const CartRow=load('components/store/cart-row.tsx',rowDeps).default;
 const nodes=node=>Array.isArray(node)?node.flatMap(nodes):node&&typeof node==='object'?[node,...nodes(node.props?.children)]:[];
 const primitive=()=>null;
 const sheets={Sheet:primitive,SheetContent:primitive,SheetHeader:primitive,SheetTitle:primitive,SheetDescription:primitive};
@@ -24,23 +25,45 @@ const product={id:'base',name:'Saborize · Base neutra',sku:'BASE',active:true,a
 const catalog={products:[product],flavors:[],settings:{upsell_enabled:false,contextual_upsell_enabled:false},upsell_rules:[]};
 const htmlFor=group=>renderToStaticMarkup(React.createElement(CartRow,{group,onChange:()=>{},onRemove:()=>{}})).replace(/\u00a0/g,' ');
 
-test('large mixed quantities show each presentation price and preserve the cart total',()=>{
+function editableRow(group,onChange=()=>{},onRemove=()=>{}){
+ let editing=false,focusCount=0;
+ const editButton={current:{focus:()=>focusCount++}};
+ const Row=load('components/store/cart-row.tsx',{...rowDeps,react:{...React,useState:()=>[editing,value=>{editing=value;}],useRef:()=>editButton}}).default;
+ const tree=()=>Row({group:typeof group==='function'?group():group,onChange,onRemove});
+ return {tree,open:()=>tree().props.onOpenChange(true),nodes:()=>nodes(tree()),html:()=>renderToStaticMarkup(tree()).replace(/\u00a0/g,' '),focusCount:()=>focusCount};
+}
+
+test('compact rows show the name, selected quantities, total and pencil with controls hidden',()=>{
  const group=portal.groupCart(portal.resolveCart([{product_id:'base',mode:'bundle',quantity:34},{product_id:'base',mode:'package',quantity:13}],catalog))[0];
  const html=htmlFor(group);
- assert.match(html,/183 pacotes no total/);assert.match(html,/34 fardos \+ 13 pacotes avulsos/);
- assert.match(html,/R\$ 254,75/);assert.match(html,/R\$ 50,95/);assert.match(html,/R\$ 9\.323,85/);
- assert.match(html,/aria-label="Fardos de Saborize · Base neutra"[^>]*value="34"/);
- assert.match(html,/aria-label="Pacotes de Saborize · Base neutra"[^>]*value="13"/);
- assert.match(html,/1\.650 g por pacote/);
+ assert.match(html,/Saborize · Base neutra/);assert.match(html,/34 fardos de 5 pacotes \+ 13 pacotes avulsos/);
+ assert.match(html,/R\$ 9\.323,85/);assert.match(html,/aria-label="Editar quantidades de Saborize · Base neutra"/);
+ assert.match(html,/aria-expanded="false"/);assert.doesNotMatch(html,/<input/);
+ assert.doesNotMatch(html,/R\$ 254,75/);assert.doesNotMatch(html,/1\.650 g por pacote/);assert.doesNotMatch(html,/Remover item/);
 });
 
-test('offer rows display the effective price; package-only products have no bundle control',()=>{
+test('editing reveals both counters; finishing keeps new amounts and returns focus to the pencil',()=>{
+ let cart=[{product_id:'base',mode:'bundle',quantity:34},{product_id:'base',mode:'package',quantity:13}],removed=false;
+ const view=editableRow(()=>portal.groupCart(portal.resolveCart(cart,catalog))[0],(mode,quantity)=>{cart=portal.setVariantQuantity(cart,cart[0],mode,quantity);},()=>removed=true);
+ view.open();const open=view.html();assert.match(open,/aria-expanded="true"/);
+ assert.match(open,/R\$ 254,75/);assert.match(open,/R\$ 50,95/);assert.match(open,/1\.650 g por pacote/);
+ assert.match(open,/aria-label="Fardos de Saborize · Base neutra"[^>]*value="34"/);
+ assert.match(open,/aria-label="Pacotes de Saborize · Base neutra"[^>]*value="13"/);
+ view.nodes().find(n=>n.type===controls.DualQuantity).props.onChange('bundle',35);
+ view.nodes().find(n=>n.type===controls.DualQuantity).props.onChange('package',14);
+ const updated=view.html();assert.match(updated,/189 pacotes no total/);assert.match(updated,/R\$ 9\.629,55/);
+ view.nodes().find(n=>n.type==='button'&&n.props.className.includes('order-review-done')).props.onClick();
+ const closed=view.html();assert.match(closed,/35 fardos de 5 pacotes \+ 14 pacotes avulsos/);assert.match(closed,/R\$ 9\.629,55/);assert.doesNotMatch(closed,/<input/);assert.equal(view.focusCount(),1);
+ view.open();view.nodes().find(n=>n.type==='button'&&n.props.className==='order-review-remove').props.onClick();assert.equal(removed,true);
+});
+
+test('offer editing keeps the effective price; package-only products have no bundle control',()=>{
  const resolved=portal.resolveCart([{product_id:'base',mode:'bundle',quantity:2}],catalog)[0];
  const offer={...resolved,upsell:true,unit_price:17500};
- const html=htmlFor(portal.groupCart([offer])[0]);
+ const view=editableRow(portal.groupCart([offer])[0]);view.open();const html=view.html();
  assert.match(html,/Sugestão adicionada/);assert.match(html,/R\$ 175,00/);assert.match(html,/R\$ 35,00/);assert.match(html,/R\$ 350,00/);
  const c={...catalog,products:[{...product,bundle_enabled:false}]};
- const single=htmlFor(portal.groupCart(portal.resolveCart([{product_id:'base',mode:'package',quantity:1}],c))[0]);
+ const singleView=editableRow(portal.groupCart(portal.resolveCart([{product_id:'base',mode:'package',quantity:1}],c))[0]);singleView.open();const single=singleView.html();
  assert.doesNotMatch(single,/aria-label="Fardos de/);assert.match(single,/1 pacote no total/);
 });
 
