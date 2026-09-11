@@ -47,6 +47,19 @@
 .productInfo p { color: #70647b; font-size: 1rem; line-height: 1.65; margin: 0; }
 .packaging { display: flex; align-items: center; gap: 8px; color: #63517b; font-size: .875rem; margin-top: 18px; }
 .unavailable { display: inline-block; padding: 6px 9px; background: #fff3e7; color: #925923; font-size: .8125rem; border-radius: 6px; margin-top: 14px; }
+.aboutButton { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 44px; margin-top: 20px; padding: 11px 14px; border: 1px solid #d8cce7; border-radius: 10px; background: #f2edf8; color: #60438c; font-size: .875rem; line-height: 1.4; font-weight: 600; cursor: pointer; }
+.aboutButton:hover { background: #e9e0f4; border-color: #bba7d4; }
+.aboutButton svg { flex-shrink: 0; }
+.aboutSheet[data-slot=sheet-content] { width: min(100%, 600px); max-width: 600px; height: 100dvh; max-height: 100dvh; gap: 0; overflow: hidden; background: #fff; }
+.aboutHeader { flex-shrink: 0; padding: 26px 68px 22px 24px; border-bottom: 1px solid #e8e1ee; }
+.aboutHeader [data-slot=sheet-title] { font-size: 1.375rem; line-height: 1.35; }
+.aboutHeader [data-slot=sheet-description] { font-size: .875rem; color: #796b85; }
+.aboutClose { position: absolute; top: 20px; right: 18px; display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid #e3dbe9; border-radius: 10px; color: #695378; background: #fbf9fd; cursor: pointer; }
+.aboutSheet :where(button, a):focus-visible { outline: 3px solid #10aa9b; outline-offset: 3px; }
+.aboutBody { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 24px 24px max(28px, env(safe-area-inset-bottom)); }
+.aboutBody .photo { border: 1px solid #eee8f4; border-radius: 12px; }
+.aboutBody .photo img { object-fit: contain; }
+.aboutBody :global(.line-about-label), .aboutBody :global(.line-prep-facts dt), .aboutBody :global(.line-yield h3), .aboutBody :global(.line-yield p) { font-size: .875rem; }
 .flavorPanel { min-width: 0; padding: 24px; }
 .flavorHeading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
 .flavorHeading h4 { font-size: 1.125rem; font-weight: 700; margin: 0; }
@@ -91,6 +104,7 @@
   .productIntro { border-right: 0; border-bottom: 1px solid #eee8f3; }
   .photo { aspect-ratio: 1.5; }
   .productInfo { padding: 20px; }
+  .aboutBody { padding: 22px 20px max(28px, env(safe-area-inset-bottom)); }
   .flavorPanel { padding: 20px; }
   .flavors { gap: 7px; }
   .flavors li { padding: 11px; }

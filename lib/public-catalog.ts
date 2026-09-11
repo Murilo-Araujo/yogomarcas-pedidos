@@ -1,9 +1,10 @@
 import type { Catalog, Flavor, Line, Product } from './portal';
+import { getLineDetails, type LineDetailsData } from './line-details';
 
 export type PublicLine = Pick<Line, 'id' | 'name' | 'description'>;
 export type PublicProduct = Pick<Product,
   'id' | 'line_id' | 'name' | 'description' | 'image_url' | 'package_label' |
-  'package_weight_grams' | 'has_flavors' | 'available'>;
+  'package_weight_grams' | 'has_flavors' | 'available'> & { details: LineDetailsData };
 export type PublicFlavor = Pick<Flavor,
   'id' | 'product_id' | 'name' | 'package_weight_grams' | 'available'>;
 export type PublicCatalog = {
@@ -34,6 +35,7 @@ export function toPublicCatalog(source: Catalog): PublicCatalog {
     package_weight_grams: product.package_weight_grams,
     has_flavors: product.has_flavors,
     available: product.available,
+    details: getLineDetails(product, source.flavors),
   }));
   const lines = activeLines
     .filter(line => products.some(product => product.line_id === line.id))

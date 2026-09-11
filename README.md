@@ -6,6 +6,8 @@ Catálogo B2B em português, com carrinho local, finalização no WhatsApp e adm
 
 `https://pedidos.yogomarcas.com.br/catalogo` apresenta as linhas, fotos, descrições, pesos e sabores ativos sem cadastro, preços ou carrinho. A busca por linha/sabor e os filtros funcionam sem sessão e não leem nem gravam dados da loja no navegador. O logotipo e a recuperação de erros mantêm o visitante em `/catalogo`.
 
+Cada produto oferece **Sobre esta linha / Sobre este produto**, com o mesmo preparo, rendimento estimado, pesos e apresentações do pedido normal. `lib/line-details.ts` e `LineDetailsContent` são compartilhados entre as duas páginas. Os detalhes públicos usam todos os sabores ativos da linha, mesmo durante uma busca, e não incluem preços ou códigos internos.
+
 A página consulta o catálogo vigente no servidor a cada visita e envia ao navegador apenas os campos permitidos por `lib/public-catalog.ts`. Preços, ofertas, configurações comerciais e códigos internos não entram no HTML nem nos dados serializados da página. Linhas/produtos/sabores ocultos ficam de fora; itens ativos temporariamente indisponíveis permanecem identificados. Alterações no cadastro aparecem na próxima visita, sem republicação. A rota exige o runtime Next.js da Vercel e não é compatível com exportação estática.
 
 Verificação: `node --test tests/public-catalog.test.cjs`, `npm run typecheck` e `npm run build:vercel`.

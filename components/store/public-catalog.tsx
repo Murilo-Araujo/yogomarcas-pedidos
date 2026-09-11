@@ -2,8 +2,10 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { ArrowUp, BookOpen, Package, Search, X } from 'lucide-react';
+import { ArrowUp, BookOpen, Info, Package, Search, X } from 'lucide-react';
 import type { PublicCatalog, PublicFlavor, PublicProduct } from '@/lib/public-catalog';
+import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { LineDetailsContent } from './line-details';
 import styles from './public-catalog.module.css';
 
 const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
@@ -32,6 +34,23 @@ function ProductSection({ product, flavors, totalFlavors, priority }: {
         {!product.has_flavors && !!product.package_weight_grams && <span className={styles.packaging}>
           <Package size={17} aria-hidden="true" />{weight(product.package_weight_grams)} por {product.package_label.toLocaleLowerCase('pt-BR')}
         </span>}
+        <Sheet>
+          <SheetTrigger asChild>
+            <button type="button" className={styles.aboutButton} aria-label={`${product.has_flavors ? 'Sobre a linha' : 'Sobre o produto'} ${product.name}`}>
+              <Info size={18} aria-hidden="true" />{product.has_flavors ? 'Sobre esta linha' : 'Sobre este produto'}
+            </button>
+          </SheetTrigger>
+          <SheetContent className={styles.aboutSheet} showCloseButton={false}>
+            <SheetHeader className={styles.aboutHeader}>
+              <SheetTitle>{product.name}</SheetTitle>
+              <SheetDescription>{product.has_flavors ? 'Sobre esta linha' : 'Sobre este produto'}</SheetDescription>
+            </SheetHeader>
+            <SheetClose className={styles.aboutClose} aria-label="Fechar informações"><X size={20} aria-hidden="true" /></SheetClose>
+            <div className={styles.aboutBody}>
+              <LineDetailsContent details={product.details}><ProductPhoto product={product} priority={false} /></LineDetailsContent>
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
     </div>
     {product.has_flavors && <div className={styles.flavorPanel}>
