@@ -785,3 +785,187 @@ body {
 @media(prefers-reduced-motion:reduce){
  .catalog-product,.catalog-product .product-photo img,.product-photo-open,.catalog-product .add-button>svg,.catalog-filters .line-tabs button{transition:none;transform:none!important}
 }
+
+/* Order review: independently scrolling items with an always visible next step. */
+.order-sheet[data-slot=sheet-content]{width:100%;max-width:660px;height:100dvh;max-height:100dvh;display:flex;flex-direction:column;gap:0;padding:0;overflow:hidden;border-color:#e5e1ed;background:#f7f8fb}
+.order-sheet [data-slot=sheet-header].order-sheet-header{flex-shrink:0;gap:20px;padding:24px 26px 18px;background:#fff;border-bottom:1px solid #e9e6ef}
+.order-heading-row{display:flex;align-items:center;gap:13px;min-width:0}
+.order-heading-icon{display:flex;align-items:center;justify-content:center;width:48px;height:48px;flex-shrink:0;border:1px solid #e6dff4;border-radius:14px;background:#f4f0fb;color:var(--brand)}
+.order-heading-copy{flex:1;min-width:0}
+.order-sheet [data-slot=sheet-title]{font-size:1.5625rem;font-weight:650;line-height:1.2;letter-spacing:-.7px;padding:0}
+.order-sheet [data-slot=sheet-description]{margin-top:5px;font-size:0.8125rem;line-height:1.45;color:#797387}
+.order-close{display:flex;align-items:center;justify-content:center;align-self:flex-start;width:36px;height:36px;flex-shrink:0;border:1px solid #e9e5ef;border-radius:10px;color:#777083;background:#fff}
+.order-close:hover:not(:disabled){background:#f4f1f9;color:#35294c}
+.order-header-bottom{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.order-steps{list-style:none;display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin:0;padding:0;font-size:0.75rem;font-weight:500;color:#776e80}
+.order-steps li,.order-steps button{display:flex;align-items:center;gap:7px;white-space:nowrap}
+.order-steps li>span,.order-steps button>span{display:flex;align-items:center;justify-content:center;width:23px;height:23px;border-radius:50%;background:#f2eff5;color:#776b82;font-size:0.75rem;font-weight:650}
+.order-steps .is-current{color:#6752a4}
+.order-steps .is-current>span{background:#6b55ac;color:#fff}
+.order-steps .is-complete{color:#437562}
+.order-steps .is-complete button>span{background:#eaf4ef;color:#437562}
+.order-steps button{border-radius:5px;padding:3px 0}
+.order-step-arrow{color:#b3abbd}
+.order-item-count{border:1px solid #e9e5ef;border-radius:7px;padding:4px 8px;color:#756780;font-size:0.75rem;white-space:nowrap}
+.order-sheet .order-sheet-scroll{min-height:0;flex:1;overflow-y:auto;overscroll-behavior:contain;padding:22px 24px 24px;scroll-padding-block:20px;scrollbar-gutter:stable}
+.order-items-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:13px}
+.order-items-heading h2{font-size:0.9375rem;line-height:1.4;font-weight:650;letter-spacing:-.15px;color:#3e354e}
+.order-items-heading>button{display:flex;align-items:center;gap:5px;padding:6px 0;border-radius:4px;color:var(--brand);font-size:0.75rem;font-weight:550;white-space:nowrap}
+.order-items-heading>button:hover{text-decoration:underline}
+.order-pack-note{display:flex;align-items:flex-start;gap:9px;margin:0 0 16px;padding:11px 12px;border:1px solid #e4deef;border-radius:10px;background:#f1eef7;color:#7a6e89;font-size:0.75rem;line-height:1.6}
+.order-pack-note svg{flex-shrink:0;margin-top:1px;color:#8a76ae}
+.order-pack-note strong{color:#615171;font-weight:600}
+.order-product-list{display:grid;gap:14px}
+.order-product{min-width:0;padding:18px;border:1px solid #e3dfeb;border-radius:16px;background:#fff;box-shadow:0 2px 3px #29203902}
+.order-product-heading{display:grid;grid-template-columns:64px minmax(0,1fr) 32px;gap:13px;align-items:center}
+.order-product-image{width:64px;height:70px}
+.order-product-image .suggestion-photo{width:100%;height:100%;border-radius:10px;border-color:#ece7f2;background:#f9f7fc}
+.order-product-image .suggestion-photo img{padding:0;object-fit:contain}
+.order-product-identity{min-width:0}
+.order-product-line{margin:0 0 5px;color:#807389;font-size:0.75rem;font-weight:500;line-height:1.4;overflow-wrap:anywhere}
+.order-product-identity h3{margin:0;font-size:1.0625rem;font-weight:650;line-height:1.35;letter-spacing:-.2px;overflow-wrap:anywhere;color:#352c44}
+.order-product-meta{display:flex;flex-wrap:wrap;gap:5px 10px;margin-top:6px;color:#776582;font-size:0.75rem;line-height:1.4}
+.order-product-offer{display:inline-flex;align-items:center;gap:4px;color:#6f599c}
+.order-product-remove{display:flex;align-items:center;justify-content:center;align-self:start;width:32px;height:34px;border-radius:8px;color:#776582}
+.order-product-remove:hover:not(:disabled){color:#b64650;background:#fceef0}
+.order-product .dual-quantity-priced{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,8rem),1fr));align-items:stretch;gap:12px;width:100%;min-width:0;margin:17px 0}
+.order-product .quantity-field{display:flex;flex-direction:column;gap:7px;min-width:0;padding:12px;border:1px solid #ebe6f1;border-radius:11px;background:#faf9fc}
+.order-product .quantity-field[data-selected=true]{border-color:#d4c5e9;background:#f8f5fc}
+.order-product .quantity-option-title{font-size:0.875rem;gap:6px}
+.order-product .quantity-option-title svg{width:16px;height:16px;color:#8a71b2}
+.order-product .quantity-option-unit{font-size:0.75rem;color:#776582}
+.order-product .quantity-option-price{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 3px;margin:6px 0 3px;font-size:1.125rem;font-weight:650;line-height:1.3;letter-spacing:-.3px;color:#463453;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.order-product .quantity-option-price>span{font-size:0.75rem;font-weight:400;color:#776582;letter-spacing:0}
+.order-product .quantity{display:grid;grid-template-columns:40px minmax(0,1fr) 40px;align-items:center;width:100%;height:42px;border:1px solid #ddd3e8;border-radius:8px;background:#fff;overflow:hidden}
+.order-product .quantity input{width:100%;min-width:0;height:40px;padding:0;border:0;background:transparent;font-size:1rem;font-weight:550;line-height:1.2;color:#473557;font-variant-numeric:tabular-nums}
+.order-product .quantity button{display:flex;align-items:center;justify-content:center;width:40px;height:40px;min-height:40px;color:#8369aa;border-radius:0}
+.order-product .quantity button:hover:not(:disabled){background:#eee8f8}
+.order-product .quantity button:disabled{opacity:.3}
+.order-product .quantity:focus-within{outline:2px solid var(--brand);outline-offset:2px}
+.order-product .quantity button:focus-visible{outline:2px solid var(--brand);outline-offset:-3px}
+.order-product-total{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding-top:14px;border-top:1px solid #eeeaf3}
+.order-product-equivalence{display:flex;align-items:center;gap:8px;color:#776582;min-width:0}
+.order-product-equivalence svg{flex-shrink:0}
+.order-product-equivalence strong{display:block;font-size:0.75rem;line-height:1.4;font-weight:550;color:#73617f}
+.order-product-equivalence small{display:block;margin-top:3px;font-size:0.75rem;color:#776582;line-height:1.4}
+.order-product-amount{margin-left:auto;text-align:right}
+.order-product-amount>span{display:block;margin-bottom:2px;font-size:0.75rem;line-height:1.4;color:#776582}
+.order-product-amount strong{font-size:1.3125rem;line-height:1.2;letter-spacing:-.55px;color:#493655;font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap}
+.order-unavailable{padding:18px;border:1px solid #ead5cd;border-radius:14px;background:#fff9f6;color:#795246;font-size:0.8125rem;line-height:1.6}
+.order-unavailable p{margin-bottom:12px}
+.order-sheet .cart-offers{margin:26px 0;gap:13px}
+.order-sheet .cart-offers-heading h3{font-size:1rem;letter-spacing:-.2px}
+.order-sheet .cart-offers-heading p{font-size:0.75rem;color:#776582}
+.order-sheet .cart-suggestion{background:#fff;border-radius:15px}
+.order-sheet .projection-card{margin:22px 0 0;padding:20px;border:1px solid #d9e9e2;border-radius:15px;background:#f0f7f4;color:#456d5d}
+.order-sheet .projection-heading{gap:8px;margin-bottom:18px;color:#5d8c79}
+.order-sheet .projection-heading h3{font-size:0.9375rem;font-weight:600}
+.order-sheet .forecast-highlight>span{color:#5e7768;font-size:0.75rem}
+.order-sheet .forecast-highlight strong{font-size:1.9375rem;font-weight:650;letter-spacing:-1px;color:#356950;font-variant-numeric:tabular-nums}
+.order-sheet .forecast-highlight strong.negative{color:#a44049}
+.order-sheet .forecast-highlight strong small{font-size:0.9375rem;font-weight:400;letter-spacing:0}
+.order-sheet .forecast-scenario{font-size:0.75rem;color:#5e7768;margin:9px 0 14px}
+.order-sheet .forecast-key-facts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;padding:0}
+.order-sheet .forecast-key-facts>span{padding:11px 12px;border:1px solid #dceae3;border-radius:8px;background:#ffffff91;font-size:0.75rem;color:#5e7768}
+.order-sheet .forecast-key-facts b{color:#4d7661;font-size:0.875rem;font-weight:600}
+.order-sheet .forecast-disclaimer,.order-sheet .forecast-excluded{font-size:0.75rem;color:#5e7768;line-height:1.6;margin-bottom:10px}
+.order-sheet .projection-card .store-disclosure{border-color:#dae6de}
+.order-sheet .projection-card .disclosure-trigger{font-size:0.75rem;color:#4f8068;padding-top:14px}
+.order-sheet .forecast-numbers dt,.order-sheet .forecast-assumption{color:#5e7768;font-size:0.75rem}
+.order-sheet .forecast-numbers dd{color:#4d6b57;font-variant-numeric:tabular-nums}
+.order-delivery-note{display:flex;align-items:flex-start;gap:11px;margin-top:21px;padding:0 2px;color:#776582}
+.order-delivery-note svg{flex-shrink:0;margin-top:1px;color:#8c779b}
+.order-delivery-note p{margin:0;font-size:0.75rem;line-height:1.6}
+.order-sheet-footer{flex-shrink:0;padding:18px 26px max(15px,env(safe-area-inset-bottom));background:#fff;border-top:1px solid #e5dfed;box-shadow:0 -4px 18px #2e194c04}
+.order-footer-total{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px 16px;margin-bottom:15px}
+.order-footer-total>div>span{display:block;font-size:0.8125rem;font-weight:550;color:#51405c}
+.order-footer-total small{display:block;font-size:0.75rem;color:#776582;margin-top:4px;line-height:1.4}
+.order-footer-total>strong{margin-left:auto;font-size:1.75rem;font-weight:650;line-height:1.2;letter-spacing:-.9px;color:#3a2947;font-variant-numeric:tabular-nums;white-space:nowrap}
+.order-main-action.btn{min-height:48px;border-radius:11px;font-size:0.875rem;font-weight:550;gap:10px;box-shadow:0 3px 6px #5440780b}
+.order-main-action>svg:last-child{margin-left:auto}
+.order-main-action>svg:first-child:not(:last-child){margin-right:1px}
+.order-main-action.btn.primary{justify-content:space-between;padding-inline:18px;background:#6952ab}
+.order-main-action.btn.primary:hover:not(:disabled){background:#594393}
+.order-main-action.btn.whatsapp{justify-content:flex-start;padding-inline:18px}
+.order-footer-hint{margin:10px 0 0;text-align:center;font-size:0.75rem;line-height:1.4;color:#776582}
+.order-minimum{margin:-4px 0 12px;padding:9px 11px;border-radius:7px;background:#fff5e9;color:#896b43;font-size:0.75rem;line-height:1.5}
+.order-empty{display:flex;min-height:100%;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:45px 12px}
+.order-empty-icon{display:flex;align-items:center;justify-content:center;width:82px;height:82px;margin-bottom:22px;background:#eee8f7;border:1px solid #e5daef;border-radius:24px;color:#8b6eb0}
+.order-empty h3{font-size:1.1875rem;font-weight:600;letter-spacing:-.4px;color:#52405f}
+.order-empty p{max-width:250px;margin:10px 0 25px;color:#776582;font-size:0.8125rem;line-height:1.6}
+.order-empty .btn{gap:16px}
+.order-checkout-form{gap:20px}
+.order-checkout-heading h2{font-size:1.125rem;font-weight:600;letter-spacing:-.3px;color:#463353}
+.order-checkout-heading h2:focus{outline:none}
+.order-checkout-heading p{margin-top:6px;font-size:0.75rem;color:#776582;line-height:1.55}
+.order-sheet .checkout-identity{justify-content:flex-start;gap:12px;padding:15px;border:1px solid #e7dfee;border-radius:13px;background:#fff}
+.order-sheet .checkout-identity>div{min-width:0;flex:1}
+.order-sheet .checkout-identity small{display:block;margin-bottom:4px;font-size:0.75rem;color:#776582}
+.order-sheet .checkout-identity strong{font-size:0.9375rem;font-weight:600;color:#594462;overflow-wrap:anywhere}
+.order-sheet .checkout-identity span{font-size:0.75rem;color:#776582}
+.order-sheet .checkout-identity .order-store-icon{display:flex;align-items:center;justify-content:center;width:42px;height:45px;flex-shrink:0;margin:0;border-radius:10px;background:#f6f2fa;color:#9d81b0}
+.order-sheet .checkout-identity button{font-size:0.75rem;font-weight:550;color:#79608f}
+.order-contact-fields{min-inline-size:0;margin:0;padding:18px;border:1px solid #e7dfee;border-radius:13px;background:#fff}
+.order-contact-fields .form-grid{grid-template-columns:minmax(0,1fr) 110px;gap:18px 14px}
+.order-contact-fields .form-grid>.field:first-child{grid-column:1/-1}
+.order-contact-fields .field>span{font-size:0.875rem;color:#84708e;font-weight:550}
+.order-contact-fields .field input,.order-contact-fields .field textarea,.order-contact-fields .choice{border-color:#e2d8e9;border-radius:8px;background:#fcfaff;font-size:1rem;min-height:44px}
+.order-contact-fields>.store-disclosure{margin-top:20px}
+.order-contact-fields .disclosure-trigger{font-size:0.75rem;color:#776582}
+.order-privacy{margin:0;font-size:0.75rem;line-height:1.65;color:#776582}
+.order-privacy a{text-decoration:underline;text-underline-offset:2px}
+.order-back.btn{margin-top:-5px;font-size:0.75rem;color:#776582}
+@media(max-width:480px){
+ .order-sheet [data-slot=sheet-header].order-sheet-header{padding:20px 18px 15px;gap:17px}
+ .order-heading-row{gap:11px}
+ .order-heading-icon{width:43px;height:43px;border-radius:12px}
+ .order-sheet [data-slot=sheet-title]{font-size:1.4375rem}
+ .order-sheet [data-slot=sheet-description]{font-size:0.75rem;margin-top:4px}
+ .order-close{width:32px;height:32px}
+ .order-steps{gap:9px;font-size:0.75rem}
+ .order-steps li,.order-steps button{gap:6px}
+ .order-item-count{font-size:0.75rem;padding:4px 7px}
+ .order-sheet .order-sheet-scroll{padding:18px 14px 22px;scrollbar-gutter:auto}
+ .order-items-heading{padding-inline:2px}
+ .order-items-heading h2{font-size:0.875rem}
+ .order-items-heading>button{font-size:0.75rem}
+ .order-pack-note{font-size:0.75rem;gap:8px;padding:10px 11px}
+ .order-product{padding:14px;border-radius:13px}
+ .order-product-heading{grid-template-columns:55px minmax(0,1fr) 28px;gap:10px}
+ .order-product-image{width:55px;height:64px}
+ .order-product-line{font-size:0.75rem;margin-bottom:4px}
+ .order-product-identity h3{font-size:0.9375rem}
+ .order-product-meta{font-size:0.75rem;margin-top:5px}
+ .order-product-remove{width:28px;height:32px}
+ .order-product .dual-quantity-priced{gap:9px;margin:15px 0}
+ .order-product .quantity-field{padding:10px;gap:6px}
+ .order-product .quantity-option-title{font-size:0.875rem}
+ .order-product .quantity-option-price{font-size:1.0625rem}
+ .order-product .quantity-option-unit{font-size:0.75rem}
+ .order-product .quantity-option-price>span{font-size:0.75rem}
+ .order-product .quantity{grid-template-columns:34px minmax(0,1fr) 34px}
+ .order-product .quantity button{width:34px}
+ .order-product-equivalence{gap:6px}
+ .order-product-equivalence strong{font-size:0.75rem}
+ .order-product-equivalence small{font-size:0.75rem}
+ .order-product-amount strong{font-size:1.25rem}
+ .order-sheet .projection-card{padding:17px}
+ .order-sheet .forecast-highlight strong{font-size:1.8125rem}
+ .order-sheet .forecast-key-facts>span{padding:10px;font-size:0.75rem}
+ .order-sheet-footer{padding:15px 18px max(12px,env(safe-area-inset-bottom))}
+ .order-footer-total{margin-bottom:13px;gap:6px 12px}
+ .order-footer-total>div>span{font-size:0.75rem}
+ .order-footer-total small{font-size:0.75rem}
+ .order-footer-total>strong{font-size:1.625rem}
+ .order-footer-hint{font-size:0.75rem;margin-top:9px}
+ .order-contact-fields{padding:15px}
+ .order-contact-fields .form-grid{grid-template-columns:minmax(0,1fr) 98px;gap:16px 11px}
+}
+@media(max-height:620px){
+ .order-sheet [data-slot=sheet-header].order-sheet-header{padding-block:12px;gap:10px}
+ .order-sheet [data-slot=sheet-description]{display:none}
+ .order-heading-icon{width:37px;height:37px;border-radius:10px}
+ .order-sheet-footer{padding-block:10px max(10px,env(safe-area-inset-bottom))}
+ .order-footer-total{margin-bottom:10px}
+ .order-footer-hint{display:none}
+}
