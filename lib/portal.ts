@@ -9,7 +9,7 @@ export type Catalog={upsell_rules?:import('./retention').UpsellRule[];lines:Line
 export type CartItem={upsell_rule_id?:string|null;product_id:string;flavor_id?:string|null;mode:'package'|'bundle';quantity:number;upsell?:boolean};
 export type ResolvedItem=CartItem&{product:Product;flavor?:Flavor;unit_price:number;units:number};
 export type OrderItem={internal_code?:string;product_id:string;flavor_id?:string|null;flavor_name?:string|null;name:string;sku:string;mode:string;package_label:string;quantity:number;bundle_units:number;units:number;unit_price:number;line_total:number;upsell:boolean};
-export type Order={customer_id?:string;projection_snapshot?:import('./projection').Projection|null;id:string;public_number:string;customer_name:string;company:string;phone:string;city:string;state:string;customer_code:string;notes:string;items:OrderItem[];total:number;status:string;status_note:string;created_at:string};
+export type Order={customer_id?:string;projection_snapshot?:import('./projection').Projection|null;id:string;public_number:string;customer_name:string;company:string;phone:string;city:string;state:string;delivery_address?:import('./delivery-address').DeliveryAddress|null;customer_code:string;notes:string;items:OrderItem[];total:number;status:string;status_note:string;created_at:string};
 export type Session={access_token:string;refresh_token:string;expires_in:number;expires_at?:number};
 export const money=(n:number)=>(n/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 export const moneyInput=(n:number|null)=>n===null?'':(n/100).toFixed(2);

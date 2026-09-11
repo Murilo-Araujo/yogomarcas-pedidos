@@ -897,7 +897,7 @@ body {
 .order-checkout-form{gap:20px}
 .order-checkout-heading h2{font-size:1.125rem;font-weight:600;letter-spacing:-.3px;color:#463353}
 .order-checkout-heading h2:focus{outline:none}
-.order-checkout-heading p{margin-top:6px;font-size:0.75rem;color:#776582;line-height:1.55}
+.order-checkout-heading p{margin-top:6px;font-size:0.875rem;color:#776582;line-height:1.55}
 .order-sheet .checkout-identity{justify-content:flex-start;gap:12px;padding:15px;border:1px solid #e7dfee;border-radius:13px;background:#fff}
 .order-sheet .checkout-identity>div{min-width:0;flex:1}
 .order-sheet .checkout-identity small{display:block;margin-bottom:4px;font-size:0.75rem;color:#776582}
@@ -908,6 +908,13 @@ body {
 .order-contact-fields{min-inline-size:0;margin:0;padding:18px;border:1px solid #e7dfee;border-radius:13px;background:#fff}
 .order-contact-fields .form-grid{grid-template-columns:minmax(0,1fr) 110px;gap:18px 14px}
 .order-contact-fields .form-grid>.field:first-child{grid-column:1/-1}
+.order-address-fields>legend{padding:0 7px;font-size:1rem;font-weight:600;color:#594462}
+.delivery-address-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:18px 14px}
+.delivery-address-grid>.field:first-child{grid-column:1/-1;max-width:200px}
+.delivery-address-grid .address-full{grid-column:1/-1}
+.delivery-address-grid .field{min-width:0}
+.address-city-state{display:grid;grid-template-columns:minmax(0,1fr) 100px;gap:14px}
+.delivery-address-hint{margin-top:18px;font-size:0.875rem;line-height:1.5;color:#776582}
 .order-contact-fields .field>span{font-size:0.875rem;color:#84708e;font-weight:550}
 .order-contact-fields .field input,.order-contact-fields .field textarea,.order-contact-fields .choice{border-color:#e2d8e9;border-radius:8px;background:#fcfaff;font-size:1rem;min-height:44px}
 .order-contact-fields>.store-disclosure{margin-top:20px}

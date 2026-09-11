@@ -1,5 +1,6 @@
 import {BUNDLE_UNITS,bundlePrice,orderMessage,cartOffers,matchesOffer} from '../../../lib/retention.ts';
 import {calculateProjection} from '../../../lib/projection.ts';
+import {deliveryAddressError,normalizeDeliveryAddress} from '../../../lib/delivery-address.ts';
 // Public catalogue/actions and explicitly authenticated administration.
 // Service credentials stay in this Supabase Edge Function.
 const BASE = Deno.env.get('SUPABASE_URL')!;
@@ -81,8 +82,8 @@ function publicCustomer(c:any){const {pin_hash,pin_salt,...profile}=c;return pro
 async function customerProfile(c:any){
  // The authenticated customer's latest order already durably stores these fields.
  // Never look up checkout details by a client-supplied phone or customer ID.
- const last=(await db('yp_orders',`customer_id=eq.${c.id}&is_test=eq.false&select=id,customer_name,city,state&order=created_at.desc,id.desc&limit=1`))[0];
- return {...publicCustomer(c),checkout_details:last?{order_id:last.id,name:last.customer_name,city:last.city,state:last.state}:null};
+ const last=(await db('yp_orders',`customer_id=eq.${c.id}&is_test=eq.false&select=id,customer_name,city,state,delivery_address&order=created_at.desc,id.desc&limit=1`))[0];
+ return {...publicCustomer(c),checkout_details:last?{order_id:last.id,name:last.customer_name,city:last.city,state:last.state,...normalizeDeliveryAddress(last.delivery_address)}:null};
 }
 function profileInput(b:any){
  const store=str(b.store_name,160),contact=str(b.contact_name,120);if(store.length<2)throw new ApiError('Informe o nome da loja.');
@@ -167,6 +168,10 @@ async function saveOrder(b:any){
  if(b.profile_version!==profile.updated_at)throw new ApiError('Os dados da loja mudaram. Atualize seu cadastro e confira a previsão antes de continuar.',409);
  const c={...(b.customer||{}),company:profile.store_name,phone:profile.phone}; const phone=profile.phone;
  if(str(c.name).length<2||str(c.company).length<2||phone.length<10||phone.length>13||str(c.city).length<2||!['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'].includes(c.state))throw new ApiError('Preencha nome, empresa, WhatsApp, cidade e estado.');
+ if(!Object.prototype.hasOwnProperty.call(c,'postal_code'))throw new ApiError('Atualize a página para informar o endereço de entrega antes de finalizar.');
+ const delivery_address=normalizeDeliveryAddress(c);
+ const addressError=deliveryAddressError(delivery_address);
+ if(addressError)throw new ApiError(addressError);
  if(!Array.isArray(b.items)||!b.items.length||b.items.length>200)throw new ApiError('Adicione produtos ao pedido.');
  const cat=await catalog();const {products,flavors,settings}=cat;const offers=cartOffers(cat,b.items); if(!settings.ordering_enabled)throw new ApiError('O catálogo está sendo atualizado. Fale com nossa equipe.',409);
  const seen=new Set(); let upsells=0;
@@ -195,7 +200,7 @@ async function saveOrder(b:any){
  const portion=profile.portions.find((p:any)=>p.id===b.portion_id)||profile.portions.find((p:any)=>p.id===profile.preferred_portion_id)||profile.portions[0];
  const projection=portion?calculateProjection(items,portion):null;
  if(b.cart_revision!==undefined&&!integer(b.cart_revision,0,Number.MAX_SAFE_INTEGER))throw new ApiError('Versão do carrinho inválida.');
- const order={cart_revision:b.cart_revision??null,customer_id:profile.id,projection_snapshot:projection,id:b.id,public_number:'YG-'+crypto.randomUUID().replaceAll('-','').slice(0,16).toUpperCase(),client_token_hash:tokenHash,session_id:b.session_id,customer_name:str(c.name),company:str(c.company),phone,city:str(c.city),state:c.state,customer_code:str(c.code,50),notes:str(c.notes,1000),items,total};
+ const order={cart_revision:b.cart_revision??null,customer_id:profile.id,projection_snapshot:projection,id:b.id,public_number:'YG-'+crypto.randomUUID().replaceAll('-','').slice(0,16).toUpperCase(),client_token_hash:tokenHash,session_id:b.session_id,customer_name:str(c.name),company:str(c.company),phone,city:str(c.city),state:c.state,delivery_address,customer_code:'',notes:str(c.notes,1000),items,total};
  try{return (await db('yp_orders','','POST',order))[0];}catch(err){
   const retry=await db('yp_orders',`id=eq.${b.id}`);if(retry[0]?.client_token_hash===tokenHash&&retry[0]?.customer_id===profile.id)return retry[0];throw err;
  }
@@ -278,7 +283,7 @@ Deno.serve(async(req:Request)=>{
   if(action==='orders'){
    const page=integer(b.page,0,100000)?b.page:0;const status=['prepared','contacted','confirmed','fulfilled','cancelled'].includes(b.status)?`&status=eq.${b.status}`:'';
    const from=new Date(b.from),to=new Date(b.to);if(!Number.isFinite(+from)||!Number.isFinite(+to))throw new ApiError('Período inválido.');
-   const rows=await db('yp_orders',`select=id,public_number,customer_name,company,phone,city,state,customer_code,notes,items,total,status,status_note,created_at,customer_id,projection_snapshot&is_test=eq.false&created_at=gte.${encodeURIComponent(from.toISOString())}&created_at=lt.${encodeURIComponent(to.toISOString())}${status}&order=created_at.desc&limit=51&offset=${page*50}`);
+   const rows=await db('yp_orders',`select=id,public_number,customer_name,company,phone,city,state,delivery_address,customer_code,notes,items,total,status,status_note,created_at,customer_id,projection_snapshot&is_test=eq.false&created_at=gte.${encodeURIComponent(from.toISOString())}&created_at=lt.${encodeURIComponent(to.toISOString())}${status}&order=created_at.desc&limit=51&offset=${page*50}`);
    return json({orders:rows.slice(0,50),has_more:rows.length>50});
   }
   if(action==='delete_product'||action==='delete_flavor'){

@@ -5,6 +5,9 @@ const {webcrypto:crypto,randomUUID}=require('node:crypto');
 const transpile=source=>ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;
 const projectionModule={exports:{}};vm.runInNewContext(transpile(fs.readFileSync(path.join(__dirname,'../lib/projection.ts'),'utf8')),{exports:projectionModule.exports});
 const retentionModule={exports:{}};vm.runInNewContext(transpile(fs.readFileSync(path.join(__dirname,'../lib/retention.ts'),'utf8')),{exports:retentionModule.exports});
+const addressModule={exports:{}};vm.runInNewContext(transpile(fs.readFileSync(path.join(__dirname,'../lib/delivery-address.ts'),'utf8')),{exports:addressModule.exports});
+const emptyAddress=JSON.parse(JSON.stringify(addressModule.exports.EMPTY_DELIVERY_ADDRESS));
+const deliveryAddress={postal_code:'85900-000',street:'Rua das Flores',number:'42',neighborhood:'Centro',complement:'Sala 2',reference:'Ao lado da praça'};
 const sha=async value=>Buffer.from(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value))).toString('hex');
 async function fixture(){
  const first={id:randomUUID(),phone:'5545999999999',store_name:'Loja de teste A',contact_name:'Teste',portions:[{id:'small_cone',name:'Casquinha pequena',grams:100,price:500}],preferred_portion_id:'small_cone',updated_at:'2026-09-04T00:00:00.000+00:00'};
@@ -19,9 +22,9 @@ async function fixture(){
   const order=u.searchParams.get('order');if(order)rows.sort((a,b)=>{for(const field of order.split(',')){const [key,direction]=field.split('.');const n=typeof a[key]==='number'&&typeof b[key]==='number'?a[key]-b[key]:String(a[key]??'').localeCompare(String(b[key]??''));if(n)return direction==='desc'?-n:n;}return 0;});
   if(u.searchParams.has('limit')){const offset=Number(u.searchParams.get('offset')||0);rows=rows.slice(offset,offset+Number(u.searchParams.get('limit')));}
   return Response.json(rows);};
- const source=fs.readFileSync(path.join(__dirname,'../supabase/functions/order-portal/index.ts'),'utf8').replace("import {calculateProjection} from '../../../lib/projection.ts';",'').replace("import {BUNDLE_UNITS,bundlePrice,orderMessage,cartOffers,matchesOffer} from '../../../lib/retention.ts';",'');
- vm.runInNewContext(transpile(source),{Deno:{env:{get:name=>name==='SUPABASE_URL'?'https://isolated.invalid':'isolated-only'},serve:fn=>handler=fn},calculateProjection:projectionModule.exports.calculateProjection,...retentionModule.exports,crypto,TextEncoder,TextDecoder,Uint8Array,Response,Request,URL,fetch:fakeFetch});
- const payload={id:randomUUID(),client_token:randomUUID(),session_id:randomUUID(),customer_device_token:tokenA,profile_version:first.updated_at,portion_id:'small_cone',customer:{name:'Pessoa de teste',company:'FORGED',phone:'FORGED',city:'Toledo',state:'PR'},items:[{product_id:base.id,mode:'bundle',quantity:2,unit_price:25000},{product_id:support.id,mode:'package',quantity:1,unit_price:3000}],projection_snapshot:{revenue_max:999999999}};
+ const source=fs.readFileSync(path.join(__dirname,'../supabase/functions/order-portal/index.ts'),'utf8').replace("import {deliveryAddressError,normalizeDeliveryAddress} from '../../../lib/delivery-address.ts';",'').replace("import {calculateProjection} from '../../../lib/projection.ts';",'').replace("import {BUNDLE_UNITS,bundlePrice,orderMessage,cartOffers,matchesOffer} from '../../../lib/retention.ts';",'');
+ vm.runInNewContext(transpile(source),{Deno:{env:{get:name=>name==='SUPABASE_URL'?'https://isolated.invalid':'isolated-only'},serve:fn=>handler=fn},calculateProjection:projectionModule.exports.calculateProjection,...retentionModule.exports,...addressModule.exports,crypto,TextEncoder,TextDecoder,Uint8Array,Response,Request,URL,fetch:fakeFetch});
+ const payload={id:randomUUID(),client_token:randomUUID(),session_id:randomUUID(),customer_device_token:tokenA,profile_version:first.updated_at,portion_id:'small_cone',customer:{...deliveryAddress,name:'Pessoa de teste',company:'FORGED',phone:'FORGED',city:'Toledo',state:'PR'},items:[{product_id:base.id,mode:'bundle',quantity:2,unit_price:25000},{product_id:support.id,mode:'package',quantity:1,unit_price:3000}],projection_snapshot:{revenue_max:999999999}};
  async function call(data,expected=200){const r=await handler(new Request('https://isolated.invalid/functions/v1/order-portal',{method:'POST',body:JSON.stringify({action:'order',...data}),headers:{'Content-Type':'application/json'}}));const result=await r.json();assert.equal(r.status,expected,JSON.stringify(result));return result;}
  return {db,call,payload,first,second,tokenA,tokenB,base,support,settings,catalog:async(version)=>{const r=await handler(new Request('https://isolated.invalid/functions/v1/order-portal'+(version?'?offers='+version:'')));assert.equal(r.status,200);return r.json();}};
 }
@@ -72,7 +75,7 @@ test('checkout defaults come from the latest real order of the authenticated sho
   {id:randomUUID(),customer_id:f.second.id,is_test:false,customer_name:'Outra loja',city:'Curitiba',state:'PR',created_at:'2026-09-04T00:00:00Z'}
  );
  const result=await f.call({action:'customer_restore',device_token:f.tokenA,customer_id:f.second.id,phone:f.second.phone});
- assert.deepEqual(result.profile.checkout_details,{order_id:f.db.yp_orders[1].id,name:'Atual',city:'Joinville',state:'SC'});
+ assert.deepEqual(result.profile.checkout_details,{...emptyAddress,order_id:f.db.yp_orders[1].id,name:'Atual',city:'Joinville',state:'SC'});
  assert.equal(result.profile.pin_hash,undefined);assert.equal(result.profile.pin_salt,undefined);
  const other=await f.call({action:'customer_restore',device_token:f.tokenB});assert.equal(other.profile.checkout_details.name,'Outra loja');
 });
@@ -84,7 +87,7 @@ test('preparing a new order saves changed checkout defaults without rewriting th
  let result=await f.call({action:'customer_restore',device_token:f.tokenA});assert.equal(result.profile.checkout_details.name,'Pessoa de teste');assert.equal(result.profile.checkout_details.city,'Toledo');
  const next={...f.payload,id:randomUUID(),client_token:randomUUID(),customer:{...f.payload.customer,name:'Novo nome',city:'Blumenau',state:'SC'}};
  await f.call(next);result=await f.call({action:'customer_restore',device_token:f.tokenA});
- assert.deepEqual(result.profile.checkout_details,{order_id:next.id,name:'Novo nome',city:'Blumenau',state:'SC'});
+ assert.deepEqual(result.profile.checkout_details,{...deliveryAddress,order_id:next.id,name:'Novo nome',city:'Blumenau',state:'SC'});
  assert.equal(f.db.yp_orders[0].city,'Toledo');assert.equal(f.db.yp_orders[0].customer_name,'Pessoa de teste');
 });
 
@@ -94,4 +97,45 @@ test('checkout defaults require a valid remembered device and survive editing sh
  const updated=await f.call({action:'customer_update',device_token:f.tokenA,store_name:'Loja editada',contact_name:'Outro contato',portions:f.first.portions,preferred_portion_id:f.first.preferred_portion_id});
  assert.equal(updated.profile.checkout_details.city,'Toledo');assert.equal(updated.profile.checkout_details.state,'PR');
  f.db.yp_customer_devices[0].revoked_at=new Date().toISOString();await f.call({action:'customer_restore',device_token:f.tokenA},401);
+});
+
+test('delivery fields are saved and included in the encoded WhatsApp message without client-supplied codes',async()=>{
+ const f=await fixture();
+ const r=await f.call({...f.payload,customer:{...f.payload.customer,postal_code:'85900000',street:'  Rua das Flores  ',code:'FORGED-CUSTOMER',unrelated:'do not save'}});
+ assert.deepEqual(f.db.yp_orders[0].delivery_address,deliveryAddress);
+ assert.equal(f.db.yp_orders[0].customer_code,'');
+ for(const text of ['Endereço de entrega:','Rua das Flores, 42','Bairro: Centro','Complemento: Sala 2','Cidade: Toledo/PR','CEP: 85900-000','Referência: Ao lado da praça'])assert.ok(r.message.includes(text),text);
+ assert.ok(!r.message.includes('Código do cliente'));assert.ok(!r.message.includes('FORGED-CUSTOMER'));
+ assert.equal(new URL(r.whatsapp_url).searchParams.get('text'),r.message);
+ const restored=await f.call({action:'customer_restore',device_token:f.tokenA});
+ for(const [key,value] of Object.entries(deliveryAddress))assert.equal(restored.profile.checkout_details[key],value);
+ const other=await f.call({action:'customer_restore',device_token:f.tokenB,customer_id:f.first.id});
+ assert.equal(other.profile.checkout_details,null);
+});
+
+test('incomplete or invalid delivery addresses never create an order',async()=>{
+ const f=await fixture();
+ for(const change of [{postal_code:undefined},{postal_code:''},{postal_code:'1234'},{postal_code:'xx85900000'},{street:''},{number:''},{number:'1'.repeat(21)},{neighborhood:''},{complement:'a'.repeat(201)},{reference:'a'.repeat(201)}]){
+  await f.call({...f.payload,customer:{...f.payload.customer,...change}},400);
+ }
+ assert.equal(f.db.yp_orders.length,0);
+});
+
+test('single-digit and unnumbered addresses work with optional fields left empty',async()=>{
+ for(const number of ['1','S/N']){
+  const f=await fixture();
+  const r=await f.call({...f.payload,customer:{...f.payload.customer,number,complement:'',reference:''}});
+  assert.ok(r.message.includes(`Rua das Flores, ${number}`));
+  assert.ok(!r.message.includes('Complemento:'));assert.ok(!r.message.includes('Referência:'));
+ }
+});
+
+test('changed delivery addresses become defaults without changing an earlier order or its retry',async()=>{
+ const f=await fixture(),first=await f.call(f.payload);f.db.yp_orders[0].created_at='2026-01-01T00:00:00Z';
+ const changed={...f.payload,id:randomUUID(),client_token:randomUUID(),customer:{...f.payload.customer,street:'Avenida Brasil',number:'8',complement:'',reference:'Entrada lateral'}};
+ await f.call(changed);
+ const restored=await f.call({action:'customer_restore',device_token:f.tokenA});
+ assert.equal(restored.profile.checkout_details.street,'Avenida Brasil');assert.equal(restored.profile.checkout_details.complement,'');
+ assert.deepEqual(f.db.yp_orders[0].delivery_address,deliveryAddress);
+ assert.equal((await f.call({...f.payload,customer:changed.customer})).message,first.message);
 });

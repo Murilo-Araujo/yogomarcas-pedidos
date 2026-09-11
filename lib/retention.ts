@@ -14,7 +14,9 @@ export function orderMessage(o:any){
   group.units+=i.units??i.quantity*(i.mode==='bundle'?i.bundle_units:1);
   group.total+=i.line_total;groups.set(key,group);
  }
- return [`Olá! Gostaria de fazer o pedido ${o.public_number}.`,'',`Empresa: ${o.company}`,`Responsável: ${o.customer_name}`,`WhatsApp: ${o.phone}`,`Cidade: ${o.city}/${o.state}`,o.customer_code?`Código do cliente: ${o.customer_code}`:'','',...[...groups.values()].map(i=>`${i.code} — ${i.units} ${i.units===1?'pacote':'pacotes'} — ${money(i.total)}`),'',`Subtotal dos produtos: ${money(o.total)}`,o.notes?`Observações: ${o.notes}`:'','Frete, prazo, disponibilidade e pagamento a confirmar.'].join('\n');
+ const address=o.delivery_address;
+ const delivery=address?.street?['','Endereço de entrega:',`${address.street}, ${address.number}`,`Bairro: ${address.neighborhood}`,address.complement?`Complemento: ${address.complement}`:null,`Cidade: ${o.city}/${o.state}`,`CEP: ${address.postal_code}`,address.reference?`Referência: ${address.reference}`:null].filter(line=>line!==null):[`Cidade: ${o.city}/${o.state}`];
+ return [`Olá! Gostaria de fazer o pedido ${o.public_number}.`,'',`Empresa: ${o.company}`,`Responsável: ${o.customer_name}`,`WhatsApp: ${o.phone}`,...delivery,o.customer_code?`Código do cliente: ${o.customer_code}`:'','',...[...groups.values()].map(i=>`${i.code} — ${i.units} ${i.units===1?'pacote':'pacotes'} — ${money(i.total)}`),'',`Subtotal dos produtos: ${money(o.total)}`,o.notes?`Observações: ${o.notes}`:'','Frete, prazo, disponibilidade e pagamento a confirmar.'].join('\n');
 }
 
 export type UpsellRule = {id:string;trigger_product_id:string;trigger_flavor_id?:string|null;product_id:string;flavor_id:string|null;title:string;description:string;price:number|null;priority:number;active:boolean};
