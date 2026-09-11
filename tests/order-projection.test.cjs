@@ -15,7 +15,10 @@ async function fixture(){
  const settings={id:1,whatsapp:'554532541200',ordering_enabled:true,minimum_order:0,upsell_enabled:false};
  const db={yp_customers:[first,second],yp_customer_devices:[{token_hash:await sha(tokenA),customer_id:first.id,revoked_at:null},{token_hash:await sha(tokenB),customer_id:second.id,revoked_at:null}],yp_lines:[line],yp_products:[base,support],yp_flavors:[],yp_settings:[settings],yp_orders:[],yp_upsell_rules:[],yp_customer_carts:[],yp_customer_favorites:[]};
  let handler;
- const fakeFetch=async (url,init={})=>{const u=new URL(url);assert.equal(u.origin,'https://isolated.invalid');if(u.pathname==='/rest/v1/rpc/yp_check_rate')return Response.json(true);if(u.pathname==='/rest/v1/rpc/yp_save_customer_cart'){const b=JSON.parse(init.body),cart={customer_id:b.p_customer,revision:b.p_revision+1,items:b.p_items,total:b.p_total,status:'active'};db.yp_customer_carts.push(cart);return Response.json(cart);}const table=u.pathname.split('/').pop();assert.ok(db[table],table);let rows=db[table].filter(row=>[...u.searchParams].every(([key,v])=>!v.startsWith('eq.')&&!v.startsWith('is.')||v.startsWith('eq.')?(!v.startsWith('eq.')||String(row[key])===v.slice(3)):row[key]===null));if(init.method==='POST'){const value=JSON.parse(init.body);if(table==='yp_orders')value.is_test=false;db[table].push(value);return Response.json([value]);}if(init.method==='PATCH'){rows.forEach(r=>Object.assign(r,JSON.parse(init.body)));}return Response.json(rows);};
+ const fakeFetch=async (url,init={})=>{const u=new URL(url);assert.equal(u.origin,'https://isolated.invalid');if(u.pathname==='/rest/v1/rpc/yp_check_rate')return Response.json(true);if(u.pathname==='/rest/v1/rpc/yp_save_customer_cart'){const b=JSON.parse(init.body),cart={customer_id:b.p_customer,revision:b.p_revision+1,items:b.p_items,total:b.p_total,status:'active'};db.yp_customer_carts.push(cart);return Response.json(cart);}const table=u.pathname.split('/').pop();assert.ok(db[table],table);let rows=db[table].filter(row=>[...u.searchParams].every(([key,v])=>!v.startsWith('eq.')&&!v.startsWith('is.')||v.startsWith('eq.')?(!v.startsWith('eq.')||String(row[key])===v.slice(3)):row[key]===null));if(init.method==='POST'){const value=JSON.parse(init.body);if(table==='yp_orders'){value.is_test=false;value.created_at=new Date().toISOString();}db[table].push(value);return Response.json([value]);}if(init.method==='PATCH'){rows.forEach(r=>Object.assign(r,JSON.parse(init.body)));}
+  const order=u.searchParams.get('order');if(order)rows.sort((a,b)=>{for(const field of order.split(',')){const [key,direction]=field.split('.');const n=typeof a[key]==='number'&&typeof b[key]==='number'?a[key]-b[key]:String(a[key]??'').localeCompare(String(b[key]??''));if(n)return direction==='desc'?-n:n;}return 0;});
+  if(u.searchParams.has('limit')){const offset=Number(u.searchParams.get('offset')||0);rows=rows.slice(offset,offset+Number(u.searchParams.get('limit')));}
+  return Response.json(rows);};
  const source=fs.readFileSync(path.join(__dirname,'../supabase/functions/order-portal/index.ts'),'utf8').replace("import {calculateProjection} from '../../../lib/projection.ts';",'').replace("import {BUNDLE_UNITS,bundlePrice,orderMessage,cartOffers,matchesOffer} from '../../../lib/retention.ts';",'');
  vm.runInNewContext(transpile(source),{Deno:{env:{get:name=>name==='SUPABASE_URL'?'https://isolated.invalid':'isolated-only'},serve:fn=>handler=fn},calculateProjection:projectionModule.exports.calculateProjection,...retentionModule.exports,crypto,TextEncoder,TextDecoder,Uint8Array,Response,Request,URL,fetch:fakeFetch});
  const payload={id:randomUUID(),client_token:randomUUID(),session_id:randomUUID(),customer_device_token:tokenA,profile_version:first.updated_at,portion_id:'small_cone',customer:{name:'Pessoa de teste',company:'FORGED',phone:'FORGED',city:'Toledo',state:'PR'},items:[{product_id:base.id,mode:'bundle',quantity:2,unit_price:25000},{product_id:support.id,mode:'package',quantity:1,unit_price:3000}],projection_snapshot:{revenue_max:999999999}};
@@ -58,3 +61,37 @@ test('public catalog exposes the product choice and masks disabled flavor bundle
 
 test('flavor-specific rules are returned only to clients supporting the new offer protocol',async()=>{const f=await fixture(),[a,b]=flavored(f);f.db.yp_upsell_rules.push({id:randomUUID(),trigger_product_id:f.base.id,trigger_flavor_id:b.id,product_id:f.base.id,flavor_id:a.id,price:null,priority:0,active:true});assert.equal((await f.catalog()).upsell_rules.length,0);assert.equal((await f.catalog('2')).upsell_rules[0].trigger_flavor_id,b.id);});
 test('authenticated order flow accepts a flavor upsell in packages and bundles together',async()=>{const f=await fixture(),[a,b]=flavored(f);Object.assign(f.settings,{upsell_enabled:true,upsell_product_id:f.base.id,upsell_flavor_id:b.id,upsell_price:6000});const offer={...packet(f,b,3),upsell:true,unit_price:6000};const r=await f.call({...f.payload,items:[packet(f,a),offer,{...offer,mode:'bundle',quantity:2,unit_price:30000}]});assert.equal(r.total,83836);assert.ok(r.message.includes('EI-002 — 13 pacotes'));assert.equal(f.db.yp_orders[0].projection_snapshot.packets,14);});
+
+
+test('checkout defaults come from the latest real order of the authenticated shop only',async()=>{
+ const f=await fixture();f.first.pin_hash='private-hash';f.first.pin_salt='private-salt';
+ f.db.yp_orders.push(
+  {id:randomUUID(),customer_id:f.first.id,is_test:false,customer_name:'Antigo',city:'Toledo',state:'PR',created_at:'2026-09-01T00:00:00Z'},
+  {id:randomUUID(),customer_id:f.first.id,is_test:false,customer_name:'Atual',city:'Joinville',state:'SC',created_at:'2026-09-02T00:00:00Z'},
+  {id:randomUUID(),customer_id:f.first.id,is_test:true,customer_name:'Teste excluído',city:'Cuiabá',state:'MT',created_at:'2026-09-03T00:00:00Z'},
+  {id:randomUUID(),customer_id:f.second.id,is_test:false,customer_name:'Outra loja',city:'Curitiba',state:'PR',created_at:'2026-09-04T00:00:00Z'}
+ );
+ const result=await f.call({action:'customer_restore',device_token:f.tokenA,customer_id:f.second.id,phone:f.second.phone});
+ assert.deepEqual(result.profile.checkout_details,{order_id:f.db.yp_orders[1].id,name:'Atual',city:'Joinville',state:'SC'});
+ assert.equal(result.profile.pin_hash,undefined);assert.equal(result.profile.pin_salt,undefined);
+ const other=await f.call({action:'customer_restore',device_token:f.tokenB});assert.equal(other.profile.checkout_details.name,'Outra loja');
+});
+
+test('preparing a new order saves changed checkout defaults without rewriting the previous order',async()=>{
+ const f=await fixture();
+ const initial=await f.call({action:'customer_restore',device_token:f.tokenA});assert.equal(initial.profile.checkout_details,null);
+ await f.call(f.payload);f.db.yp_orders[0].created_at='2026-01-01T00:00:00Z';
+ let result=await f.call({action:'customer_restore',device_token:f.tokenA});assert.equal(result.profile.checkout_details.name,'Pessoa de teste');assert.equal(result.profile.checkout_details.city,'Toledo');
+ const next={...f.payload,id:randomUUID(),client_token:randomUUID(),customer:{...f.payload.customer,name:'Novo nome',city:'Blumenau',state:'SC'}};
+ await f.call(next);result=await f.call({action:'customer_restore',device_token:f.tokenA});
+ assert.deepEqual(result.profile.checkout_details,{order_id:next.id,name:'Novo nome',city:'Blumenau',state:'SC'});
+ assert.equal(f.db.yp_orders[0].city,'Toledo');assert.equal(f.db.yp_orders[0].customer_name,'Pessoa de teste');
+});
+
+test('checkout defaults require a valid remembered device and survive editing shop settings',async()=>{
+ const f=await fixture();await f.call(f.payload);
+ await f.call({action:'customer_restore',phone:f.first.phone},401);
+ const updated=await f.call({action:'customer_update',device_token:f.tokenA,store_name:'Loja editada',contact_name:'Outro contato',portions:f.first.portions,preferred_portion_id:f.first.preferred_portion_id});
+ assert.equal(updated.profile.checkout_details.city,'Toledo');assert.equal(updated.profile.checkout_details.state,'PR');
+ f.db.yp_customer_devices[0].revoked_at=new Date().toISOString();await f.call({action:'customer_restore',device_token:f.tokenA},401);
+});

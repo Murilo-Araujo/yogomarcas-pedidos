@@ -1,6 +1,7 @@
 import {api,PortalError} from './portal';
 import type {SalePortion} from './projection';
-export type CustomerProfile={id:string;phone:string;store_name:string;contact_name:string;portions:SalePortion[];preferred_portion_id:string|null;created_at:string;updated_at:string};
+import type {SavedCheckoutDetails} from './checkout-details';
+export type CustomerProfile={id:string;phone:string;store_name:string;contact_name:string;checkout_details?:SavedCheckoutDetails|null;portions:SalePortion[];preferred_portion_id:string|null;created_at:string;updated_at:string};
 export type DeviceIdentity={version:1;phone:string;token:string};
 const STORAGE_KEY='yp-shop-v1';let memoryIdentity:DeviceIdentity|null=null;
 export function normalizePhone(value:string){let n=value.replace(/\D/g,'');if(n.length===10||n.length===11)n='55'+n;return /^55[1-9]\d{9,10}$/.test(n)?n:null;}

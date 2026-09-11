@@ -78,6 +78,12 @@ async function createUser(email:string,password:string){return request('/auth/v1
 
 function phoneNumber(value:unknown){let n=str(value,40).replace(/\D/g,'');if(n.length===10||n.length===11)n='55'+n;if(!/^55[1-9]\d{9,10}$/.test(n))throw new ApiError('Informe um telefone brasileiro com DDD.');return n;}
 function publicCustomer(c:any){const {pin_hash,pin_salt,...profile}=c;return profile;}
+async function customerProfile(c:any){
+ // The authenticated customer's latest order already durably stores these fields.
+ // Never look up checkout details by a client-supplied phone or customer ID.
+ const last=(await db('yp_orders',`customer_id=eq.${c.id}&is_test=eq.false&select=id,customer_name,city,state&order=created_at.desc,id.desc&limit=1`))[0];
+ return {...publicCustomer(c),checkout_details:last?{order_id:last.id,name:last.customer_name,city:last.city,state:last.state}:null};
+}
 function profileInput(b:any){
  const store=str(b.store_name,160),contact=str(b.contact_name,120);if(store.length<2)throw new ApiError('Informe o nome da loja.');
  if(!Array.isArray(b.portions)||b.portions.length<1||b.portions.length>12)throw new ApiError('Cadastre pelo menos um formato de venda.');
@@ -129,15 +135,15 @@ async function shoppingAction(req:Request,b:any,action:string){
 async function customerAction(req:Request,b:any,action:string){
  if(['customer_history','customer_favorites','customer_favorite','customer_cart','customer_cart_save'].includes(action))return shoppingAction(req,b,action);
  if(action==='customer_start'){await rate(req,b,'customer_start');const phone=phoneNumber(b.phone);const existing=await db('yp_customers',`phone=eq.${phone}&select=id`);return {exists:existing.length>0};}
- if(action==='customer_restore'){await rate(req,b,'customer_restore');return {profile:publicCustomer(await customerAuth(b.device_token))};}
+ if(action==='customer_restore'){await rate(req,b,'customer_restore');return {profile:await customerProfile(await customerAuth(b.device_token))};}
  if(action==='customer_register'){
   await rate(req,b,'customer_register');const phone=phoneNumber(b.phone),digest=await deviceHash(b.device_token),input=profileInput(b);
   const prior=await db('yp_customer_devices',`token_hash=eq.${digest}&revoked_at=is.null`);
-  if(prior.length){const c=await customerAuth(b.device_token);if(c.phone!==phone)throw new ApiError('Aparelho associado a outro cadastro.',403);return {profile:publicCustomer(c)};}
+  if(prior.length){const c=await customerAuth(b.device_token);if(c.phone!==phone)throw new ApiError('Aparelho associado a outro cadastro.',403);return {profile:await customerProfile(c)};}
   const salt=crypto.randomUUID(),pin_hash=await pinDigest(b.pin,salt),id=crypto.randomUUID();
   if((await db('yp_customers',`phone=eq.${phone}&select=id`)).length)throw new ApiError('Este telefone já tem cadastro. Volte e entre com seu PIN.',409);
   await rpc('yp_register_customer',{p_id:id,p_phone:phone,p_store:input.store_name,p_contact:input.contact_name,p_portions:input.portions,p_preferred:input.preferred_portion_id,p_pin_hash:pin_hash,p_salt:salt,p_token_hash:digest});
-  return {profile:publicCustomer((await db('yp_customers',`id=eq.${id}`))[0])};
+  return {profile:await customerProfile((await db('yp_customers',`id=eq.${id}`))[0])};
  }
  if(action==='customer_login'){
   await rate(req,b,'customer_login');const phone=phoneNumber(b.phone),digest=await deviceHash(b.device_token);
@@ -145,9 +151,9 @@ async function customerAction(req:Request,b:any,action:string){
   const allowed=await rpc('yp_check_rate',{p_key:key,p_limit:8,p_expiry:new Date((slot+2)*900000).toISOString()});if(!allowed)throw new ApiError('Muitas tentativas. Tente novamente em 15 minutos.',429);
   const c=(await db('yp_customers',`phone=eq.${phone}`))[0];
   const supplied=await pinDigest(b.pin,c?.pin_salt||'unknown-profile');if(!c||!equalSecret(supplied,c.pin_hash))throw new ApiError('Telefone ou PIN incorreto.',401);
-  await issueDevice(c.id,digest);return {profile:publicCustomer(c)};
+  await issueDevice(c.id,digest);return {profile:await customerProfile(c)};
  }
- if(action==='customer_update'){const c=await customerAuth(b.device_token),input=profileInput(b);return {profile:publicCustomer((await db('yp_customers',`id=eq.${c.id}`,'PATCH',{...input,updated_at:new Date().toISOString()}))[0])};}
+ if(action==='customer_update'){const c=await customerAuth(b.device_token),input=profileInput(b);return {profile:await customerProfile((await db('yp_customers',`id=eq.${c.id}`,'PATCH',{...input,updated_at:new Date().toISOString()}))[0])};}
  if(action==='customer_preference'){const c=await customerAuth(b.device_token);if(!c.portions.some((p:any)=>p.id===b.portion_id))throw new ApiError('Formato inválido.');await db('yp_customers',`id=eq.${c.id}`,'PATCH',{preferred_portion_id:b.portion_id});return {ok:true};}
  if(action==='customer_forget'){const digest=await deviceHash(b.device_token);await db('yp_customer_devices',`token_hash=eq.${digest}`,'PATCH',{revoked_at:new Date().toISOString()});return {ok:true};}
  throw new ApiError('Ação não encontrada.',404);
