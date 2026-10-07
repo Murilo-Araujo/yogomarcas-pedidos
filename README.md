@@ -107,3 +107,18 @@ A ação **Excluir** exige confirmação com o nome do item. Excluir um produto 
 A migração `supabase/schema/catalog_deletion.sql` deve ser aplicada após `bundles_codes_admin.sql`. Ela adiciona a RPC transacional de exclusão, proteção contra edição de itens excluídos e índices parciais para permitir reutilizar nomes e códigos de cadastros incorretos. Registros excluídos com atividade aparecem identificados nas métricas do período.
 
 Verificação da exclusão: testes HTTP isolados em `tests/admin-access.test.cjs` e `tests/order-projection.test.cjs`, além de `tests/catalog-deletion-db.sql`, cujos dados de teste são integralmente desfeitos por rollback.
+
+## Aplicativo instalável (PWA)
+
+O portal é instalável diretamente pelo navegador. O manifesto tem identidade estável (`id`, `start_url` e `scope` em `/`), modo `standalone` e ícones próprios para Android e iOS. As orientações aparecem no cadastro, no convite acima do catálogo e no rodapé; ficam ocultas quando o portal é aberto como aplicativo.
+
+- **Android:** usa o prompt do navegador quando `beforeinstallprompt` está disponível, após um clique explícito. Se não houver prompt ou ele for dispensado, exibe o fluxo pelo menu do Chrome.
+- **iPhone/iPad:** orienta abrir no Safari, compartilhar, adicionar à Tela de Início e manter “Abrir como App da Web” quando essa opção existir. Não simula uma instalação automática no iOS.
+- **Navegadores internos:** orienta copiar somente o endereço público do portal e abrir no navegador. O guia também permite selecionar outro dispositivo manualmente.
+- **Acesso:** o aplicativo usa o mesmo cadastro; o cliente pode precisar entrar com telefone e PIN quando o sistema separar o armazenamento do aplicativo e do navegador.
+- **Sem internet:** o service worker fornece apenas a tela de reconexão e os recursos estáticos de marca. HTML do aplicativo, APIs, preços, autenticação e pedidos não entram no Cache Storage. Nenhum pedido é enviado automaticamente ao reconectar. O carrinho mantém o mecanismo de persistência já existente.
+- **Atualizações:** `sw.js` é servido sem cache HTTP e com escopo `/`; só os caches `yogomarcas-offline-*` obsoletos são removidos. Incremente sua versão ao alterar a tela offline ou seus recursos. Não há recarga automática durante a montagem de um pedido.
+
+Gerar os ícones novamente: `node scripts/generate-pwa-icons.mjs` (usa o `sharp` já instalado com Next.js). Verificar: `node --test tests/pwa.test.mjs`, `npm run typecheck` e `npm run build:vercel`.
+
+A publicação futura na Google Play é uma etapa separada: gerar o pacote Android (por exemplo, TWA/Bubblewrap), configurar a associação do domínio com o certificado real de assinatura e submeter a versão na conta Play Console. Esta entrega não publica aplicativo em loja nem inclui associação com certificados fictícios.

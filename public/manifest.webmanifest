@@ -1,0 +1,20 @@
+{
+  "id": "/",
+  "name": "Yogomarcas | Pedidos",
+  "short_name": "Yogomarcas",
+  "description": "Bases e complementos para sua sorveteria. Monte seu pedido e continue pelo WhatsApp.",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f8f9fb",
+  "theme_color": "#6656b4",
+  "categories": ["shopping", "business"],
+  "prefer_related_applications": false,
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
