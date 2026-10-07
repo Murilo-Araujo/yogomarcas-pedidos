@@ -52,7 +52,7 @@ export default function InstallApp({ variant = 'card' }: { variant?: 'card' | 'l
       <DialogContent className="pwa-install-dialog" showCloseButton={false}>
         <DialogClose asChild><button type="button" className="pwa-close icon-button" aria-label="Fechar orientações de instalação"><X size={20} aria-hidden="true"/></button></DialogClose>
         <DialogHeader>
-          <div className="pwa-app-heading"><img src="/icons/icon-192.png" alt="" width={64} height={64}/><div><span>YOGOMARCAS</span><p>Portal de pedidos</p></div></div>
+          <div className="pwa-app-heading"><img src="/icons/icon-192.png?v=2" alt="" width={64} height={64}/><div><span>YOGOMARCAS</span><p>Portal de pedidos</p></div></div>
           <DialogTitle>Seus pedidos, sempre à mão.</DialogTitle>
           <DialogDescription>Instale gratuitamente e abra o portal direto pelo ícone no celular.</DialogDescription>
         </DialogHeader>

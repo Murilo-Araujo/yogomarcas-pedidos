@@ -29,7 +29,7 @@ function worker({ offline = false, missingFallback = false } = {}) {
     URL, Response,
     Request: class extends Request { constructor(path, options) { super(new URL(path, 'https://pedidos.yogomarcas.com.br'), options); } },
     fetch: async request => { state.fetched.push(request.url); if (offline) throw new TypeError('Network unavailable'); return new Response('fresh network response'); },
-    caches: { open: async () => cache, keys: async () => ['yogomarcas-offline-v0', 'yogomarcas-offline-v1', 'other-app-cache'], delete: async name => { state.deleted.push(name); return true; } },
+    caches: { open: async () => cache, keys: async () => ['yogomarcas-offline-v0', 'yogomarcas-offline-v1', 'yogomarcas-offline-v2', 'other-app-cache'], delete: async name => { state.deleted.push(name); return true; } },
     self: {
       location: { origin: 'https://pedidos.yogomarcas.com.br' },
       addEventListener: (name, handler) => { events[name] = handler; },
@@ -51,7 +51,7 @@ test('worker only precaches static offline help and cleans its own obsolete cach
   assert.equal(sw.state.skipped, true);
   assert.deepEqual(sw.state.stored.map(url => new URL(url).pathname), ['/offline.html', '/assets/logo.png', '/icons/icon-192.png']);
   await sw.lifecycle('activate');
-  assert.deepEqual(sw.state.deleted, ['yogomarcas-offline-v0']);
+  assert.deepEqual(sw.state.deleted, ['yogomarcas-offline-v0', 'yogomarcas-offline-v1']);
   assert.equal(sw.state.claimed, true);
 });
 

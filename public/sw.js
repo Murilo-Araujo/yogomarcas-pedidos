@@ -3,7 +3,7 @@
  * Bump this version whenever offline.html or a cached brand asset changes.
  */
 const CACHE_PREFIX = 'yogomarcas-offline-';
-const CACHE_NAME = `${CACHE_PREFIX}v1`;
+const CACHE_NAME = `${CACHE_PREFIX}v2`;
 const OFFLINE_URL = '/offline.html';
 const OFFLINE_ASSETS = [OFFLINE_URL, '/assets/logo.png', '/icons/icon-192.png'];
 
