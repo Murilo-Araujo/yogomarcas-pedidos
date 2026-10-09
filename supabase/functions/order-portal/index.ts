@@ -1,4 +1,5 @@
 import {preparationInput,informationInput} from '../../../lib/catalog-management.ts';
+import {parseLinkHub,publicLinkHub} from '../../../lib/link-hub.ts';
 import {BUNDLE_UNITS,bundlePrice,orderMessage,cartOffers,matchesOffer} from '../../../lib/retention.ts';
 import {calculateProjection} from '../../../lib/projection.ts';
 import {deliveryAddressError,normalizeDeliveryAddress} from '../../../lib/delivery-address.ts';
@@ -213,7 +214,14 @@ const message=orderMessage;
 Deno.serve(async(req:Request)=>{
  if(req.method==='OPTIONS')return new Response('ok',{headers:cors});
  try{
-  if(req.method==='GET'){const cat=await catalog();if(new URL(req.url).searchParams.get('offers')!=='2')cat.upsell_rules=cat.upsell_rules.filter((r:any)=>!r.trigger_flavor_id&&r.trigger_product_id!==r.product_id);return json(cat);}
+  if(req.method==='GET'){
+   if(new URL(req.url).searchParams.get('view')==='links'){
+    const page=(await db('yp_link_hub','id=eq.1&select=config'))[0];
+    if(!page)throw new ApiError('A página está sendo preparada. Volte em instantes.',503);
+    return json({config:publicLinkHub(page.config)});
+   }
+   const cat=await catalog();if(new URL(req.url).searchParams.get('offers')!=='2')cat.upsell_rules=cat.upsell_rules.filter((r:any)=>!r.trigger_flavor_id&&r.trigger_product_id!==r.product_id);return json(cat);
+  }
   if(req.method!=='POST')throw new ApiError('Método não permitido.',405);
   if(Number(req.headers.get('content-length')||0)>7500000)throw new ApiError('Arquivo muito grande.');
   const reader=req.body?.getReader();let size=0;const chunks:Uint8Array[]=[];
@@ -222,6 +230,11 @@ Deno.serve(async(req:Request)=>{
   let b:any;try{b=JSON.parse(raw);}catch{throw new ApiError('Dados inválidos.');}
   if(!b||typeof b!=='object')throw new ApiError('Dados inválidos.');
   const action=str(b.action,40);
+  if(action==='link_hub_event'){
+   if(b.key!=='page'&&!uuid(b.key))throw new ApiError('Link inválido.');
+   await rate(req,b,'link_hub_event');
+   return json({ok:await rpc('yp_record_link_hub_event',{p_key:b.key})});
+  }
   if(action.startsWith('customer_'))return json(await customerAction(req,b,action));
   if(action==='admin_login')return json(await loginAdmin(req,b));
   if(action==='setup'){
@@ -251,6 +264,18 @@ Deno.serve(async(req:Request)=>{
   }
   const who=await admin(req);
   if(who.must_change_password&&!['admin_data','change_password'].includes(action))throw new ApiError('Defina sua nova senha para continuar.',403);
+  if(action==='admin_link_hub'){
+   const [pages,stats]=await Promise.all([db('yp_link_hub','id=eq.1&select=config,version,updated_at'),rpc('yp_link_hub_stats',{})]);
+   if(!pages[0])throw new ApiError('A página ainda não foi configurada.',404);
+   return json({page:pages[0],stats});
+  }
+  if(action==='save_link_hub'){
+   if(!integer(b.version,1,2147483646))throw new ApiError('Recarregue a página antes de salvar.');
+   let config;try{config=parseLinkHub(b.config);}catch(e){throw new ApiError(e instanceof Error?e.message:'Confira os dados da página.');}
+   const pages=await db('yp_link_hub',`id=eq.1&version=eq.${b.version}`,'PATCH',{config,version:b.version+1,updated_at:new Date().toISOString(),updated_by:who.user_id});
+   if(!pages.length)throw new ApiError('Outra pessoa atualizou esta página. Recarregue antes de aplicar suas alterações.',409);
+   const {version,updated_at}=pages[0];return json({config,version,updated_at});
+  }
   if(action==='admin_highlights')return json({highlights:await db('yp_catalog_highlights','order=starts_at.desc')});
   if(action==='save_highlight'){
    if(!uuid(b.product_id)||!integer(b.duration,1,b.unit==='months'?24:365)||!['days','months'].includes(b.unit))throw new ApiError('Selecione o produto e um período válido.');
