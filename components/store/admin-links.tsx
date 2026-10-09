@@ -74,7 +74,10 @@ export default function AdminLinks() {
       const config = parseLinkHub(draft);
       const page = await api('save_link_hub', { config, version: saved.version }, true);
       setSaved(page); setDraft(page.config); toast.success('Sua página de links foi publicada.');
-    } catch (e) { setError(e instanceof Error ? e.message : 'Não foi possível publicar.'); }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Não foi possível publicar.';
+      setError(message); toast.error(message);
+    }
     finally { setBusy(false); }
   }
   if (loading && !draft) return <section className="admin-panel"><p className="management-empty" role="status"><LoaderCircle className="spin" size={20} />Carregando sua página de links…</p></section>;
