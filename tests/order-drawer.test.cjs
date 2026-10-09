@@ -46,7 +46,7 @@ test('editing reveals both counters; finishing keeps new amounts and returns foc
  let cart=[{product_id:'base',mode:'bundle',quantity:34},{product_id:'base',mode:'package',quantity:13}],removed=false;
  const view=editableRow(()=>portal.groupCart(portal.resolveCart(cart,catalog))[0],(mode,quantity)=>{cart=portal.setVariantQuantity(cart,cart[0],mode,quantity);},()=>removed=true);
  view.open();const open=view.html();assert.match(open,/aria-expanded="true"/);
- assert.match(open,/R\$ 254,75/);assert.match(open,/R\$ 50,95/);assert.match(open,/1\.650 g por pacote/);
+ assert.match(open,/R\$ 254,75/);assert.match(open,/R\$ 50,95/);assert.doesNotMatch(open,/1\.650 g por pacote|Peso por pacote/);
  assert.match(open,/aria-label="Fardos de Saborize · Base neutra"[^>]*value="34"/);
  assert.match(open,/aria-label="Pacotes de Saborize · Base neutra"[^>]*value="13"/);
  view.nodes().find(n=>n.type===controls.DualQuantity).props.onChange('bundle',35);

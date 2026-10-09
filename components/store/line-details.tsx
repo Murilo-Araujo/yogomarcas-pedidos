@@ -8,7 +8,7 @@ export default function LineDetails({product,flavors,children}:{product:Product;
 }
 
 export function LineDetailsContent({details,children}:{details:LineDetailsData;children:ReactNode}){
- const {preparation,yieldLabel,weightLabel}=details;
+ const {preparation,yieldLabel}=details;
  return <div className="line-about">
   <div className="line-about-intro">
    {children}
@@ -37,7 +37,6 @@ export function LineDetailsContent({details,children}:{details:LineDetailsData;c
    <h3><Package size={18} aria-hidden="true"/>Embalagem e opções</h3>
    <dl>
     {details.hasFlavors?<div><dt>Sabores no catálogo</dt><dd>{details.flavorCount} {details.flavorCount===1?'opção':'opções'}</dd></div>:null}
-    <div><dt>Peso por pacote</dt><dd>{weightLabel}</dd></div>
     <div><dt>Como comprar</dt><dd>{!details.bundleEnabled?'Por pacote avulso':'Pacotes avulsos ou fardos'}</dd></div>
    </dl>
    {details.bundleEnabled?<div className="line-bundle-note"><Boxes size={19} aria-hidden="true"/><span>1 fardo = <strong>{details.bundleUnits} pacotes</strong>{details.hasFlavors?' do mesmo sabor':''}.</span></div>:null}

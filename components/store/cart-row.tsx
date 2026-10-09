@@ -21,7 +21,7 @@ export default function CartRow({group:g,onChange,onRemove}:{group:CartGroup;onC
     <CollapsibleTrigger asChild><button ref={editButton} type="button" className="order-review-edit" aria-label={`${editing?'Fechar edição':'Editar quantidades'} de ${name}`} title={editing?'Fechar edição':'Editar quantidades'}><Pencil size={17} aria-hidden="true"/></button></CollapsibleTrigger>
    </div>
    <CollapsibleContent className="order-product order-review-editor">
-    <div className="order-review-editor-heading"><strong>Ajuste as quantidades</strong>{product.package_weight_grams?<span>{product.package_weight_grams.toLocaleString('pt-BR')} g por pacote</span>:null}</div>
+    <div className="order-review-editor-heading"><strong>Ajuste as quantidades</strong></div>
     {g.item.upsell&&<span className="order-product-offer"><Sparkles size={13} aria-hidden="true"/>Sugestão adicionada</span>}
     <DualQuantity allowBundle={product.bundle_enabled!==false} name={name} packages={g.packages} bundles={g.bundles} packagePrice={packagePrice} onChange={onChange}/>
     <p className="order-review-unit-total" aria-live="polite">{g.units.toLocaleString('pt-BR')} {g.units===1?'pacote':'pacotes'} no total{product.has_flavors?' deste sabor':''}</p>

@@ -3,14 +3,13 @@ import CatalogHighlights from './catalog-highlights';
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { ArrowUp, BookOpen, Info, Package, Search, X } from 'lucide-react';
+import { ArrowUp, BookOpen, ChevronDown, Info, Package, Search, X } from 'lucide-react';
 import type { PublicCatalog, PublicFlavor, PublicProduct } from '@/lib/public-catalog';
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { LineDetailsContent } from './line-details';
 import styles from './public-catalog.module.css';
 
 const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
-const weight = (grams: number) => `${grams.toLocaleString('pt-BR')} g`;
 
 function ProductPhoto({ product, priority }: { product: PublicProduct; priority: boolean }) {
   const [failed, setFailed] = useState(false);
@@ -32,9 +31,6 @@ function ProductSection({ product, flavors, totalFlavors, priority }: {
         <h3 id={`product-${product.id}`}>{product.name}</h3>
         <p>{product.description}</p>
         {!product.available && <span className={styles.unavailable}>Temporariamente indisponível</span>}
-        {!product.has_flavors && !!product.package_weight_grams && <span className={styles.packaging}>
-          <Package size={17} aria-hidden="true" />{weight(product.package_weight_grams)} por {product.package_label.toLocaleLowerCase('pt-BR')}
-        </span>}
         <Sheet>
           <SheetTrigger asChild>
             <button type="button" className={styles.aboutButton} aria-label={`${product.has_flavors ? 'Sobre a linha' : 'Sobre o produto'} ${product.name}`}>
@@ -54,19 +50,23 @@ function ProductSection({ product, flavors, totalFlavors, priority }: {
         </Sheet>
       </div>
     </div>
-    {product.has_flavors && <div className={styles.flavorPanel}>
-      <div className={styles.flavorHeading}>
-        <h4>Sabores</h4>
-        <span>{flavors.length === totalFlavors ? `${totalFlavors} opções` : `${flavors.length} de ${totalFlavors} opções`}</span>
-      </div>
+    {product.has_flavors && <details className={styles.flavorPanel}>
+      <summary className={styles.flavorToggle}>
+        <span className={styles.flavorToggleCopy}>
+          <span className={styles.flavorToggleTitle}><span className={styles.flavorShow}>Ver sabores</span><span className={styles.flavorHide}>Recolher sabores</span><span className="sr-only"> de {product.name}</span></span>
+          <span className={styles.flavorCount}>{flavors.length === totalFlavors ? `${totalFlavors} opções` : `${flavors.length} de ${totalFlavors} opções`}</span>
+        </span>
+        <ChevronDown size={20} aria-hidden="true" />
+      </summary>
+      <div className={styles.flavorContent}>
       {flavors.length ? <ul className={styles.flavors} aria-label={`Sabores de ${product.name}`}>
         {flavors.map(flavor => <li key={flavor.id}>
           <span className={styles.flavorName}>{flavor.name}</span>
-          {!!flavor.package_weight_grams && <span className={styles.flavorWeight}>{weight(flavor.package_weight_grams)}</span>}
           {(!product.available || !flavor.available) && <small className={styles.flavorUnavailable}>Temporariamente indisponível</small>}
         </li>)}
       </ul> : <p className={styles.noFlavors}>Os sabores desta linha serão disponibilizados em breve.</p>}
-    </div>}
+      </div>
+    </details>}
   </article>;
 }
 

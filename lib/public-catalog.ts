@@ -5,9 +5,9 @@ import { getLineDetails, type LineDetailsData } from './line-details';
 export type PublicLine = Pick<Line, 'id' | 'name' | 'description'>;
 export type PublicProduct = Pick<Product,
   'id' | 'line_id' | 'name' | 'description' | 'image_url' | 'package_label' |
-  'package_weight_grams' | 'has_flavors' | 'available'> & { details: LineDetailsData };
+  'has_flavors' | 'available'> & { details: LineDetailsData };
 export type PublicFlavor = Pick<Flavor,
-  'id' | 'product_id' | 'name' | 'package_weight_grams' | 'available'>;
+  'id' | 'product_id' | 'name' | 'available'>;
 export type PublicCatalog = {
   highlights?: CatalogHighlight[];
   lines: PublicLine[];
@@ -18,7 +18,7 @@ export type PublicCatalog = {
 const byPosition = (a: { position: number; name: string }, b: { position: number; name: string }) =>
   a.position - b.position || a.name.localeCompare(b.name, 'pt-BR');
 
-// Explicit allowlist: prices, settings, offers, internal codes and customer data
+// Explicit allowlist: prices, package weights, settings, offers, internal codes and customer data
 // must never be serialized into the public catalog's HTML or React payload.
 export function toPublicCatalog(source: Catalog): PublicCatalog {
   const activeLines = source.lines.filter(line => line.active).sort(byPosition);
@@ -34,7 +34,6 @@ export function toPublicCatalog(source: Catalog): PublicCatalog {
     description: product.description,
     image_url: product.image_url,
     package_label: product.package_label,
-    package_weight_grams: product.package_weight_grams,
     has_flavors: product.has_flavors,
     available: product.available,
     details: getLineDetails(product, source.flavors),
@@ -49,7 +48,6 @@ export function toPublicCatalog(source: Catalog): PublicCatalog {
       id: flavor.id,
       product_id: flavor.product_id,
       name: flavor.name,
-      package_weight_grams: flavor.package_weight_grams,
       available: flavor.available,
     }));
   const highlights = (source.highlights ?? []).filter(h => products.some(p => p.id === h.product_id)).map(h => ({id: h.id, product_id: h.product_id, title: h.title, description: h.description, starts_at: h.starts_at, expires_at: h.expires_at, active: h.active}));

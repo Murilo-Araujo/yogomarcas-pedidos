@@ -20,7 +20,6 @@ export default function CartSuggestion({title,description,product,flavor,price,o
  const allowBundle=product?.bundle_enabled!==false,selectedBundles=allowBundle?bundles:0;
  const units=packages+selectedBundles*5,total=units*(price||0);
  const regularPrice=flavor?.package_price??(product?.has_flavors?null:product?.package_price);
- const weight=flavor?.package_weight_grams??product?.package_weight_grams;
  const priced=price!==null&&price>0;
  const savings=priced&&regularPrice&&regularPrice>price?regularPrice-price:0;
  return <section className="cart-suggestion" aria-label="Sugestão para seu pedido">
@@ -28,7 +27,7 @@ export default function CartSuggestion({title,description,product,flavor,price,o
   <h3>{title.trim()||'Complete seu pedido'}</h3>
   {description?.trim()&&<p className="suggestion-description">{description}</p>}
   {product?<>
-   <div className="suggestion-product"><SuggestionPhoto product={product}/><div className="suggestion-product-info"><strong>{product.name}</strong>{flavor&&<span>{flavor.name}</span>}<small>{weight?`${weight.toLocaleString('pt-BR')} g por pacote`:product.package_label}</small></div></div>
+   <div className="suggestion-product"><SuggestionPhoto product={product}/><div className="suggestion-product-info"><strong>{product.name}</strong>{flavor&&<span>{flavor.name}</span>}<small>{product.package_label}</small></div></div>
    {savings>0&&<div className="suggestion-discount"><del>{money(regularPrice!)} por pacote</del><span className="suggestion-saving">Economize {money(savings)} por pacote</span></div>}
    <DualQuantity name={`${product.name}${flavor?` · ${flavor.name}`:''} na sugestão`} packages={packages} bundles={selectedBundles} allowBundle={allowBundle} packagePrice={price} disabled={disabled||preview||!priced} onChange={(mode,value)=>mode==='bundle'?setBundles(value):setPackages(value)}/>
    <div className="suggestion-selection-total" aria-live="polite"><div><span>Total da sugestão</span><small>{units?`${units} ${units===1?'pacote':'pacotes'} no total`:'Escolha uma quantidade'}</small></div><strong>{money(total)}</strong></div>
