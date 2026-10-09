@@ -28,6 +28,11 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
   const promptRef = useRef<InstallPromptEvent | null>(null);
 
   useEffect(() => {
+    // The bio page is a public gateway, with no ordering/install flow.
+    if (window.location.pathname === '/links' || window.location.hostname === 'link.yogomarkets.com.br') {
+      setReady(true);
+      return;
+    }
     const standalone = window.matchMedia('(display-mode: standalone)');
     const syncDisplay = () => setInstalled(standalone.matches || (navigator as Navigator & { standalone?: boolean }).standalone === true);
     const syncNetwork = () => setOffline(!navigator.onLine);

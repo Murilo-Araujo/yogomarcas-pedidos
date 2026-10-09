@@ -4,13 +4,15 @@ const {webcrypto:crypto,randomUUID}=require('node:crypto');
 const transpile=s=>ts.transpileModule(s,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;
 const retention={exports:{}};vm.runInNewContext(transpile(fs.readFileSync('lib/retention.ts','utf8')),{exports:retention.exports});
 const management={exports:{}};vm.runInNewContext(transpile(fs.readFileSync('lib/catalog-management.ts','utf8')),{exports:management.exports});
+const linkHub={exports:{}};vm.runInNewContext(transpile(fs.readFileSync('lib/link-hub.ts','utf8')),{exports:linkHub.exports,URL});
+const {config:hubConfig,link:hubLink}=require('./fixtures/link-hub.cjs');
 const sha=async s=>Buffer.from(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s))).toString('hex');
 async function fixture(){
  let handler;const users=[],members=[],sessions=[],calls=[],setupToken='s'.repeat(64),setup={id:1,token_hash:await sha(setupToken),used_at:null,expires_at:'2099-01-01T00:00:00Z'};
  function member(username,role='admin',active=true){const u={id:randomUUID(),email:randomUUID()+'@internal.invalid',password:'initial-pass-1234'};users.push(u);const m={user_id:u.id,email:u.email,username,role,active,must_change_password:false,sessions_valid_after:'1970-01-01T00:00:00Z'};members.push(m);return m;}
  function session(m){const s={id:randomUUID(),user_id:m.user_id,created_at:new Date().toISOString()};sessions.push(s);const token='header.'+Buffer.from(JSON.stringify({sub:m.user_id,session_id:s.id})).toString('base64url')+'.signature';s.token=token;return token;}
  const owner=member('admin','owner'),staff=member('equipe');
- const catalogDb={yp_products:[],yp_flavors:[],yp_lines:[]},deletion={deleted:true};
+ const catalogDb={yp_products:[],yp_flavors:[],yp_lines:[],yp_link_hub:[{id:1,config:hubConfig(),version:1,updated_at:'2026-10-09T12:00:00Z'}]},deletion={deleted:true};
  const fakeFetch=async(url,init={})=>{
   const u=new URL(url),p=u.pathname,b=init.body?JSON.parse(init.body):{},method=init.method||'GET';calls.push({path:p,method,body:b});
   if(p==='/auth/v1/token'){const user=users.find(x=>x.email===b.email&&x.password===b.password);if(!user)return Response.json({error:'invalid'},{status:400});const m=members.find(x=>x.user_id===user.id),token=session(m||{user_id:user.id});return Response.json({access_token:token,refresh_token:'refresh',expires_in:3600,user:{id:user.id,email:user.email}});}
@@ -21,6 +23,7 @@ async function fixture(){
   if(p==='/rest/v1/rpc/yp_create_price_adjustment')return Response.json([{id:b.p_id,basis_points:b.p_bps,status:b.p_scheduled_at?'pending':'applied'}]);
   if(p==='/rest/v1/rpc/yp_preview_price_adjustment')return Response.json({changes:[],fingerprint:'a'.repeat(32)});
   if(p==='/rest/v1/rpc/yp_delete_catalog_item')return Response.json(deletion);
+  if(p==='/rest/v1/rpc/yp_link_hub_stats')return Response.json({views:0,clicks:0,links:{}});
   if(p==='/rest/v1/rpc/yp_check_rate')return Response.json(true);
   if(p==='/rest/v1/rpc/yp_admin_session_valid'){const s=sessions.find(x=>x.id===b.p_session&&x.user_id===b.p_user),m=members.find(x=>x.user_id===b.p_user);return Response.json(!!s&&!!m?.active&&s.created_at>m.sessions_valid_after);}
   if(p==='/rest/v1/rpc/yp_claim_owner'){if(members.length||setup.used_at||setup.token_hash!==b.p_hash||Date.parse(setup.expires_at)<Date.now())return Response.json(false);members.push({user_id:b.p_user,email:b.p_email,username:'admin',role:'owner',active:true,must_change_password:true,sessions_valid_after:'1970-01-01T00:00:00Z'});setup.used_at=new Date().toISOString();return Response.json(true);}
@@ -31,9 +34,10 @@ async function fixture(){
   }throw new Error('Unexpected '+method+' '+p);
  };
  const source=fs.readFileSync('supabase/functions/order-portal/index.ts','utf8').replace(/^import .*;$/gm,'');
- vm.runInNewContext(transpile(source),{Deno:{env:{get:k=>k==='SUPABASE_URL'?'https://isolated.invalid':'secret'},serve:f=>handler=f},...retention.exports,...management.exports,crypto,TextEncoder,TextDecoder,Uint8Array,Request,Response,URL,atob,fetch:fakeFetch});
+ vm.runInNewContext(transpile(source),{Deno:{env:{get:k=>k==='SUPABASE_URL'?'https://isolated.invalid':'secret'},serve:f=>handler=f},...retention.exports,...management.exports,...linkHub.exports,crypto,TextEncoder,TextDecoder,Uint8Array,Request,Response,URL,atob,fetch:fakeFetch});
  async function call(body,token,expected=200){const r=await handler(new Request('https://isolated.invalid/order-portal',{method:'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},body:JSON.stringify(body)}));const data=await r.json();assert.equal(r.status,expected,JSON.stringify(data));return data;}
- return {call,owner,staff,session,members,users,sessions,calls,setup,setupToken,catalogDb,deletion};
+ async function readPage(){const r=await handler(new Request('https://isolated.invalid/order-portal?view=links'));assert.equal(r.status,200);return r.json();}
+ return {call,readPage,owner,staff,session,members,users,sessions,calls,setup,setupToken,catalogDb,deletion};
 }
 test('username login normalizes case, returns tokens without email and rejects invalid passwords',async()=>{const f=await fixture();const r=await f.call({action:'admin_login',username:' ADMIN ',password:'initial-pass-1234'});assert.ok(r.access_token);assert.equal(r.user,undefined);assert.equal(r.email,undefined);await f.call({action:'admin_login',username:'admin',password:'wrong'},null,401);await f.call({action:'admin_login',username:'missing',password:'wrong'},null,401);await f.call({action:'admin_login',username:'admin&role=owner',password:'initial-pass-1234'},null,401);});
 test('owner creates staff without real email and caller cannot assign owner role',async()=>{const f=await fixture(),token=f.session(f.owner);await f.call({action:'add_admin',username:'Nova.Pessoa',password:'secret-for-staff-123',role:'owner'},token);const m=f.members.find(x=>x.username==='nova.pessoa');assert.equal(m.role,'admin');assert.ok(m.email.endsWith('@accounts.yogomarcas.invalid'));const creation=f.calls.find(x=>x.path==='/auth/v1/admin/users');assert.equal(creation.body.email_confirm,true);assert.equal(creation.body.password,'secret-for-staff-123');assert.ok(!f.calls.some(x=>/invite|recover|otp/.test(x.path)));await f.call({action:'add_admin',username:'NOVA.PESSOA',password:'another-password'},token,409);});
@@ -53,3 +57,27 @@ test('preparation and extra information persist for both multi-flavor and indivi
 test('price and highlight inputs are validated before calling the database',async()=>{const f=await fixture(),token=f.session(f.staff);for(const basis_points of [0,-350,3.5,10001,'350'])await f.call({action:'preview_price_adjustment',basis_points,product_ids:null},token,400);await f.call({action:'preview_price_adjustment',basis_points:350,product_ids:[]},token,400);await f.call({action:'save_highlight',product_id:randomUUID(),duration:25,unit:'months'},token,400);await f.call({action:'save_highlight',product_id:randomUUID(),duration:0,unit:'days'},token,400);await f.call({action:'create_price_adjustment',basis_points:350,product_ids:null,id:randomUUID(),fingerprint:'bad'},token,400);});
 
 test('admin RPC responses normalize composite records for the UI',async()=>{const f=await fixture(),token=f.session(f.staff),product=randomUUID(),id=randomUUID();const highlight=await f.call({action:'save_highlight',product_id:product,title:'Novidade',description:'',duration:2,unit:'months'},token);assert.equal(highlight.product_id,product);assert.equal(highlight.title,'Novidade');const job=await f.call({action:'create_price_adjustment',id,basis_points:350,product_ids:[product],scheduled_at:'2030-01-01T12:00:00Z',fingerprint:'a'.repeat(32)},token);assert.equal(job.id,id);assert.equal(job.status,'pending');const call=f.calls.find(c=>c.path==='/rest/v1/rpc/yp_create_price_adjustment');assert.equal(call.body.p_actor,f.staff.user_id);assert.equal(call.body.p_bps,350);});
+
+
+test('link page editing requires an active admin with a definitive password',async()=>{
+ const f=await fixture();
+ for(const action of ['admin_link_hub','save_link_hub'])await f.call({action,version:1,config:hubConfig()},null,401);
+ const token=f.session(f.staff);f.staff.must_change_password=true;
+ for(const action of ['admin_link_hub','save_link_hub'])await f.call({action,version:1,config:hubConfig()},token,403);
+ f.staff.must_change_password=false;f.staff.active=false;await f.call({action:'save_link_hub',version:1,config:hubConfig()},token,401);
+ assert.ok(!f.calls.some(x=>x.path==='/rest/v1/yp_link_hub'&&x.method==='PATCH'));
+});
+test('link editor validates, saves once, and rejects a stale version without losing the first save',async()=>{
+ const f=await fixture(),token=f.session(f.staff),draft=hubConfig({title:'Nova página'});
+ const adminView=await f.call({action:'admin_link_hub'},token);assert.equal(adminView.page.version,1);
+ await f.call({action:'save_link_hub',version:1,config:hubConfig({public_url:'javascript:alert(1)'})},token,400);
+ assert.ok(!f.calls.some(x=>x.path==='/rest/v1/yp_link_hub'&&x.method==='PATCH'));
+ const saved=await f.call({action:'save_link_hub',version:1,config:draft},token);assert.equal(saved.version,2);assert.equal(saved.updated_by,undefined);
+ await f.call({action:'save_link_hub',version:1,config:hubConfig({title:'Stale'})},token,409);
+ assert.equal(f.catalogDb.yp_link_hub[0].config.title,'Nova página');
+});
+test('public link route does not leak hidden destinations, admin identity or metrics',async()=>{
+ const f=await fixture();f.catalogDb.yp_link_hub[0].config.links.push(hubLink({enabled:false,title:'Secret',url:'https://example.com/hidden'}));
+ f.catalogDb.yp_link_hub[0].updated_by='ADMIN';
+ const page=await f.readPage();assert.equal(page.config.links.length,1);assert.doesNotMatch(JSON.stringify(page),/Secret|hidden|ADMIN|updated_by|version|stats/);
+});
