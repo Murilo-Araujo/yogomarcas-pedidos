@@ -15,6 +15,7 @@ import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuLabel,Drop
 import Disclosure from './disclosure';
 import FlavorPicker from './flavor-picker';
 import LineDetails from './line-details';
+import CatalogHighlights from './catalog-highlights';
 import CustomerHistory from './customer-history';
 import CartSuggestion from './cart-suggestion';
 import CartRow from './cart-row';
@@ -134,6 +135,7 @@ export default function Storefront(){
  {receipt&&<div className="receipt-banner"><Check size={20}/><div><strong>Pedido {receipt.number} preparado</strong><p>Envie a mensagem no WhatsApp para nossa equipe receber seu pedido.</p></div><a className="btn secondary" href={receipt.whatsapp_url}>Abrir WhatsApp</a><button className="btn secondary" onClick={()=>{resetReceipt();submission.current=null;sessionStore.removeItem("yp-submission");setCart([]);setCustomer({...EMPTY_CUSTOMER,...(profile?readCheckoutDetails(profile):{}),company:profile?.store_name||'',phone:profile?.phone||''});}}>Novo pedido</button><button className="icon-button" onClick={resetReceipt} aria-label="Fechar aviso"><X size={17}/></button></div>}
  {data&&!data.settings.ordering_enabled&&<div className="notice-bar"><Clock3 size={18}/><span>Estamos atualizando nosso catálogo. Para fazer um pedido agora, fale com nossa equipe pelo WhatsApp.</span></div>}
  <div className="catalog-layout"><section className="catalog-content">
+  {data&&!loading&&!error&&<CatalogHighlights highlights={data.highlights} products={data.products} onSelect={id=>{const product=data.products.find(p=>p.id===id);if(product)showDetails(product);}}/>}
   <div className="catalog-filters">
    <div className="catalog-filter-label"><Layers3 size={17} aria-hidden="true"/><span>Linhas de produtos</span></div>
    <div className="line-tabs" role="group" aria-label="Filtrar linha"><button type="button" aria-pressed={line==='all'} className={line==='all'?'selected':''} onClick={()=>setLine('all')}>Todas as linhas</button>{data?.lines.map(l=><button type="button" aria-pressed={line===l.id} key={l.id} className={line===l.id?'selected':''} onClick={()=>setLine(l.id)}>{l.name}</button>)}</div>
