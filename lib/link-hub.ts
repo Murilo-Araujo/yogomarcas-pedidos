@@ -1,5 +1,5 @@
-export const LINK_ICONS = ['catalog', 'whatsapp', 'shopping', 'globe', 'instagram', 'flask', 'video', 'map', 'mail', 'phone', 'link'] as const;
-export type LinkIcon = typeof LINK_ICONS[number];
+import { isLinkIcon, type LinkIcon } from './tabler-icons.ts';
+export type { LinkIcon } from './tabler-icons.ts';
 export type HubLink = {
   id: string;
   title: string;
@@ -18,6 +18,9 @@ export type LinkHubConfig = {
   bio: string;
   tagline: string;
   logo_url: string;
+  logo_shape: 'original' | 'circle' | 'rounded';
+  logo_background: boolean;
+  show_title: boolean;
   background_color: string;
   accent_color: string;
   footer: string;
@@ -75,7 +78,7 @@ export function parseLinkHub(value: unknown): LinkHubConfig {
     const item = object(raw);
     if (typeof item.id !== 'string' || !idPattern.test(item.id) || ids.has(item.id.toLowerCase())) throw new Error('Há um link inválido ou repetido. Recarregue a página.');
     const id = item.id.toLowerCase(); ids.add(id);
-    if (!LINK_ICONS.includes(item.icon as LinkIcon)) throw new Error('Escolha um ícone válido.');
+    if (!isLinkIcon(item.icon)) throw new Error('Escolha um ícone válido na biblioteca.');
     if (!['card', 'featured', 'social'].includes(item.style as string) || typeof item.enabled !== 'boolean') throw new Error('Confira o formato e a visibilidade do link.');
     const starts_at = date(item.starts_at), ends_at = date(item.ends_at);
     if (starts_at && ends_at && ends_at <= starts_at) throw new Error('O término precisa ser depois do início.');
@@ -89,9 +92,15 @@ export function parseLinkHub(value: unknown): LinkHubConfig {
     if (typeof value !== 'string' || !/^#[0-9a-f]{6}$/i.test(value)) throw new Error('Escolha uma cor válida.');
     return value.toLowerCase();
   };
+  const logo_shape = source.logo_shape === undefined ? 'original' : source.logo_shape;
+  const logo_background = source.logo_background === undefined ? false : source.logo_background;
+  const show_title = source.show_title === undefined ? true : source.show_title;
+  if (!['original', 'circle', 'rounded'].includes(logo_shape as string)) throw new Error('Escolha um formato válido para a imagem.');
+  if (typeof logo_background !== 'boolean' || typeof show_title !== 'boolean') throw new Error('Confira as opções de fundo e nome do perfil.');
   return {
     title: text(source.title, 'Nome da página', 80, true), bio: text(source.bio, 'Apresentação', 240),
     tagline: text(source.tagline, 'Frase de apoio', 120), logo_url: imageUrl(source.logo_url),
+    logo_shape: logo_shape as LinkHubConfig['logo_shape'], logo_background, show_title,
     background_color: color(source.background_color), accent_color: color(source.accent_color),
     footer: text(source.footer, 'Rodapé', 180), public_url: linkUrl(source.public_url, 'Endereço público', true, true), links,
   };

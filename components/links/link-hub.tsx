@@ -1,17 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { ArrowUpRight, BookOpen, Camera, Check, Copy, Download, FlaskConical, Globe, Link as LinkIconGlyph, Mail, MapPin, MessageCircle, Phone, QrCode, Share2, ShoppingBag, Video, X } from 'lucide-react';
+import { ArrowUpRight, Check, Copy, Download, QrCode, Share2, X } from 'lucide-react';
+import { HubIcon } from './hub-icon';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { API_URL, SUPABASE_KEY } from '@/lib/config';
-import { contrastInk, linkIsVisible, publicLinkHub, type HubLink, type LinkHubConfig, type LinkIcon } from '@/lib/link-hub';
+import { contrastInk, linkIsVisible, publicLinkHub, type HubLink, type LinkHubConfig } from '@/lib/link-hub';
 import styles from './link-hub.module.css';
 
-const icons = { catalog: BookOpen, whatsapp: MessageCircle, shopping: ShoppingBag, globe: Globe, instagram: Camera, flask: FlaskConical, video: Video, map: MapPin, mail: Mail, phone: Phone, link: LinkIconGlyph };
-export function HubIcon({ name, size = 23 }: { name: LinkIcon; size?: number }) {
-  const Icon = icons[name] || LinkIconGlyph;
-  return <Icon size={size} strokeWidth={1.7} aria-hidden="true" />;
-}
 function recordEvent(key: string) {
   // Aggregated counts only; a failed metric must never interrupt navigation.
   void fetch(API_URL, {
@@ -98,8 +94,8 @@ export default function LinkHub({ initialConfig, preview = false }: { initialCon
       <div className={styles.shell}>
         <div className={styles.topbar}><span className={styles.brandNote}><span aria-hidden="true" />Conecte-se com a Yogo</span><button className={styles.shareButton} onClick={openShare} disabled={preview} aria-label="Compartilhar página"><Share2 size={19} strokeWidth={1.8} /></button></div>
         <header className={styles.profile}>
-          {config.logo_url && <div className={styles.logo}><img src={config.logo_url} alt={config.title} width="250" height="86" /></div>}
-          <h1 className={config.logo_url ? styles.name : styles.nameWithoutLogo}>{config.title}</h1>
+          {config.logo_url && <div className={styles.logo} data-shape={config.logo_shape ?? 'original'} data-background={config.logo_background ?? false}><img src={config.logo_url} alt={config.title} width="250" height="250" /></div>}
+          <h1 className={(config.show_title ?? true) ? styles.nameVisible : styles.name}>{config.title}</h1>
           {config.bio && <p className={styles.bio}>{config.bio}</p>}
           {config.tagline && <p className={styles.tagline}>{config.tagline}</p>}
           {socials.length > 0 && <nav className={styles.socials} aria-label="Redes sociais">{socials.map(link => <a key={link.id} href={link.url} onClick={event => follow(event, link)} aria-label={link.title} title={link.title} rel="noopener noreferrer" target="_blank"><HubIcon name={link.icon} size={22} /></a>)}</nav>}

@@ -1,16 +1,19 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { ArrowDown, ArrowUp, Check, ChevronDown, ExternalLink, Eye, ImagePlus, Link2, LoaderCircle, MousePointer2, Plus, RefreshCw, Save, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, dateTime } from '@/lib/portal';
 import { linkIsVisible, parseLinkHub, type HubLink, type LinkHubConfig, type LinkHubRecord, type LinkHubStats } from '@/lib/link-hub';
-import LinkHub, { HubIcon } from '@/components/links/link-hub';
+import LinkHub from '@/components/links/link-hub';
+import { HubIcon } from '@/components/links/hub-icon';
+import { tablerIconLabel } from '@/lib/tabler-icons';
 import { Switch } from '@/components/ui/switch';
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import styles from './admin-links.module.css';
 
-const iconOptions = [ ['catalog', 'Catálogo'], ['whatsapp', 'WhatsApp'], ['shopping', 'Pedidos'], ['globe', 'Site'], ['instagram', 'Instagram'], ['flask', 'Kit de teste'], ['video', 'Vídeo'], ['map', 'Localização'], ['mail', 'E-mail'], ['phone', 'Telefone'], ['link', 'Link'] ];
+const TablerIconPicker = dynamic(() => import('./tabler-icon-picker'), { ssr: false });
 const emptyStats: LinkHubStats = { views: 0, clicks: 0, links: {} };
 function localDate(iso: string | null) {
   if (!iso) return '';
@@ -43,6 +46,8 @@ export default function AdminLinks() {
   const [error, setError] = useState(''), [expanded, setExpanded] = useState<string | null>(null), [mobilePreview, setMobilePreview] = useState(false);
   const [confirm, setConfirm] = useState<{ type: 'reload' } | { type: 'delete'; link: HubLink } | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const [iconTarget, setIconTarget] = useState<string | null>(null);
+  const iconTrigger = useRef<HTMLButtonElement | null>(null);
   const dirty = !!draft && !!saved && JSON.stringify(draft) !== JSON.stringify(saved.config);
   const disabled = busy || uploads > 0;
   async function load() {
@@ -82,6 +87,7 @@ export default function AdminLinks() {
   }
   if (loading && !draft) return <section className="admin-panel"><p className="management-empty" role="status"><LoaderCircle className="spin" size={20} />Carregando sua página de links…</p></section>;
   if (!draft || !saved) return <section className="admin-panel management-panel"><div className="management-panel-body"><p className="error-box" role="alert">{error}</p><button className="btn secondary" onClick={() => void load()}><RefreshCw size={16} />Tentar novamente</button></div></section>;
+  const iconLink = draft.links.find(link => link.id === iconTarget);
   const pageUrl = saved.config.public_url || 'https://pedidos.yogomarcas.com.br/links';
   const changeUpload = (delta: number) => setUploads(current => current + delta);
   return <div className={styles.container}>
@@ -92,7 +98,10 @@ export default function AdminLinks() {
       <form ref={formRef} onSubmit={save} className={styles.editor} noValidate><fieldset disabled={disabled || loading}>
         <section className="admin-panel management-panel"><div className="panel-heading management-panel-heading"><div className="management-heading-copy"><h3>Perfil e aparência</h3><p>A primeira impressão da sua marca.</p></div></div><div className={`management-panel-body ${styles.fields}`}>
           <ImageField label="Logo ou foto do perfil" value={draft.logo_url} onChange={logo_url => patch({ logo_url })} onUpload={changeUpload} />
-          <Field label="Nome da página"><input value={draft.title} maxLength={80} onChange={event => patch({ title: event.target.value })} /></Field>
+          <Field label="Formato da imagem" hint="Original preserva o arquivo inteiro. Redondo e quadrado recortam a imagem no centro."><select value={draft.logo_shape ?? 'original'} onChange={event => patch({ logo_shape: event.target.value as LinkHubConfig['logo_shape'] })}><option value="original">Original (sem corte)</option><option value="circle">Redondo</option><option value="rounded">Quadrado com cantos arredondados</option></select></Field>
+          <label className={styles.profileToggle}><div><strong>Fundo branco atrás da imagem</strong><p>Desative para mostrar só a logo, sem a moldura branca. Para transparência, envie um PNG ou WebP sem fundo.</p></div><Switch checked={draft.logo_background ?? false} onCheckedChange={logo_background => patch({ logo_background })} aria-label="Fundo branco atrás da imagem" /></label>
+          <Field label="Nome da página" hint="O nome pode aparecer abaixo da logo, separado da imagem."><input value={draft.title} maxLength={80} onChange={event => patch({ title: event.target.value })} /></Field>
+          <label className={styles.profileToggle}><div><strong>Mostrar nome abaixo da imagem</strong><p>Você pode usar só o símbolo na imagem e escrever o nome da marca aqui.</p></div><Switch checked={draft.show_title ?? true} onCheckedChange={show_title => patch({ show_title })} aria-label="Mostrar nome abaixo da imagem" /></label>
           <Field label="Apresentação"><textarea rows={2} value={draft.bio} maxLength={240} onChange={event => patch({ bio: event.target.value })} /></Field>
           <Field label="Frase de apoio"><textarea rows={2} value={draft.tagline} maxLength={120} onChange={event => patch({ tagline: event.target.value })} /></Field>
           <div className={styles.colorRow}><label><input type="color" aria-label="Cor de destaque" value={draft.accent_color} onChange={event => patch({ accent_color: event.target.value })} /><span>Cor de destaque<small>{draft.accent_color}</small></span></label><label><input type="color" aria-label="Cor de fundo" value={draft.background_color} onChange={event => patch({ background_color: event.target.value })} /><span>Cor de fundo<small>{draft.background_color}</small></span></label></div>
@@ -109,7 +118,7 @@ export default function AdminLinks() {
             {expanded === link.id && <div id={`link-${link.id}`} className={styles.linkFields}>
               <Field label="Título do link *"><input autoFocus={!link.title} value={link.title} maxLength={90} onChange={event => patchLink(link.id, { title: event.target.value })} /></Field>
               <Field label="Endereço *" hint="Use https:// para sites, mailto: para e-mail ou tel: para telefone."><input inputMode="url" value={link.url} maxLength={2000} placeholder="https://…" onChange={event => patchLink(link.id, { url: event.target.value })} /></Field>
-              <div className={styles.twoColumns}><Field label="Formato"><select value={link.style} onChange={event => patchLink(link.id, { style: event.target.value as HubLink['style'] })}><option value="card">Botão com descrição</option><option value="featured">Card em destaque</option><option value="social">Ícone social no perfil</option></select></Field><Field label="Ícone"><select value={link.icon} onChange={event => patchLink(link.id, { icon: event.target.value as HubLink['icon'] })}>{iconOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field></div>
+              <div className={styles.twoColumns}><Field label="Formato"><select value={link.style} onChange={event => patchLink(link.id, { style: event.target.value as HubLink['style'] })}><option value="card">Botão com descrição</option><option value="featured">Card em destaque</option><option value="social">Ícone social no perfil</option></select></Field><div className={styles.iconField}><span className={styles.fieldLabel}>Ícone</span><button type="button" className={styles.iconButton} aria-label={`Escolher ícone de ${link.title || 'novo link'}`} aria-haspopup="dialog" onClick={event => { iconTrigger.current = event.currentTarget; setIconTarget(link.id); }}><HubIcon name={link.icon} size={23} /><span><strong>Escolher ícone</strong><small>{tablerIconLabel(link.icon)}</small></span><ChevronDown size={16} /></button><small className={styles.hint}>Abra a biblioteca Tabler e pesquise pelo nome.</small></div></div>
               {link.style !== 'social' && <><Field label="Descrição (opcional)"><textarea rows={2} maxLength={180} value={link.subtitle} onChange={event => patchLink(link.id, { subtitle: event.target.value })} /></Field><Field label="Etiqueta (opcional)"><input maxLength={30} placeholder="Ex.: Novidade" value={link.badge} onChange={event => patchLink(link.id, { badge: event.target.value })} /></Field><ImageField label="Imagem do link (opcional)" value={link.image_url} onChange={image_url => patchLink(link.id, { image_url })} onUpload={changeUpload} /></>}
               <details className={styles.advanced}><summary>Agendar visibilidade <ChevronDown size={16} /></summary><div className={styles.twoColumns}><Field label="Mostrar a partir de"><input type="datetime-local" value={localDate(link.starts_at)} onChange={event => patchLink(link.id, { starts_at: toIso(event.target.value) })} /></Field><Field label="Ocultar a partir de"><input type="datetime-local" value={localDate(link.ends_at)} onChange={event => patchLink(link.id, { ends_at: toIso(event.target.value) })} /></Field></div><p className={styles.hint}>Horário do seu dispositivo. Deixe vazio para não limitar. Links ocultos continuam ocultos, mesmo no período agendado.</p></details>
             </div>}
@@ -122,6 +131,7 @@ export default function AdminLinks() {
     </div>
     <div className={styles.publishBar}><div><strong>{dirty ? 'Alterações ainda não publicadas' : 'Sua página está publicada'}</strong><span>{uploads ? 'Enviando imagem…' : `Última publicação: ${dateTime(saved.updated_at)}`}</span></div><button type="button" className="btn primary" disabled={disabled || loading || !dirty} onClick={() => formRef.current?.requestSubmit()}>{busy ? <LoaderCircle size={17} className="spin" /> : dirty ? <Save size={17} /> : <Check size={17} />}{busy ? 'Publicando…' : 'Salvar e publicar'}</button></div>
     {error && <p className="error-box" role="alert">{error}</p>}
+    {iconLink && <TablerIconPicker key={iconLink.id} value={iconLink.icon} linkTitle={iconLink.title} onSelect={icon => patchLink(iconLink.id, { icon })} onClose={() => setIconTarget(null)} returnFocus={() => iconTrigger.current?.focus()} />}
     <AlertDialog open={!!confirm} onOpenChange={open => { if (!open) setConfirm(null); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{confirm?.type === 'delete' ? 'Remover este link?' : 'Descartar suas alterações?'}</AlertDialogTitle><AlertDialogDescription>{confirm?.type === 'delete' ? 'O link será removido desta edição. A página pública só muda quando você salvar e publicar.' : 'A edição atual será substituída pela última versão publicada.'}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Voltar</AlertDialogCancel><button className="btn primary" onClick={() => { if (confirm?.type === 'delete') setDraft(current => current ? { ...current, links: current.links.filter(link => link.id !== confirm.link.id) } : current); else void load(); setConfirm(null); }}>{confirm?.type === 'delete' ? 'Remover da edição' : 'Recarregar'}</button></AlertDialogFooter></AlertDialogContent></AlertDialog>
   </div>;
 }
