@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { PwaProvider } from '@/components/pwa/provider';
+import { linkFontVariables } from './link-fonts';
 import "./globals.css";
 import "./catalog-management.css";
 import "./pwa.css";
@@ -31,7 +32,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body className="antialiased"><PwaProvider>{children}</PwaProvider></body>
+      <body className={`antialiased ${linkFontVariables}`}><PwaProvider>{children}</PwaProvider></body>
     </html>
   );
 }

@@ -273,12 +273,13 @@ Deno.serve(async(req:Request)=>{
    if(!integer(b.version,1,2147483646))throw new ApiError('Recarregue a página antes de salvar.');
    let config;try{config=parseLinkHub(b.config);}catch(e){throw new ApiError(e instanceof Error?e.message:'Confira os dados da página.');}
    // An editor left open before these options existed must not reset them.
-   const profileFields=['logo_shape','logo_background','show_title'] as const;
-   if(profileFields.some(field=>b.config[field]===undefined)){
+   const profileFields=['logo_shape','logo_background','show_title','appearance'] as const;
+   if(profileFields.some(field=>b.config[field]===undefined)||b.config.links.some((link:Record<string,unknown>)=>link.appearance===undefined)){
     const previous=(await db('yp_link_hub',`id=eq.1&version=eq.${b.version}&select=config`))[0];
     if(!previous)throw new ApiError('Outra pessoa atualizou esta página. Recarregue antes de aplicar suas alterações.',409);
     const profile=parseLinkHub(previous.config);
-    config=parseLinkHub({...b.config,...Object.fromEntries(profileFields.filter(field=>b.config[field]===undefined).map(field=>[field,profile[field]]))});
+    const previousLinks=new Map(profile.links.map(link=>[link.id,link]));
+    config={...config,...Object.fromEntries(profileFields.filter(field=>b.config[field]===undefined).map(field=>[field,profile[field]])),links:config.links.map((link,index)=>b.config.links[index].appearance===undefined?{...link,appearance:previousLinks.get(link.id)?.appearance??link.appearance}:link)};
    }
    const pages=await db('yp_link_hub',`id=eq.1&version=eq.${b.version}`,'PATCH',{config,version:b.version+1,updated_at:new Date().toISOString(),updated_by:who.user_id});
    if(!pages.length)throw new ApiError('Outra pessoa atualizou esta página. Recarregue antes de aplicar suas alterações.',409);

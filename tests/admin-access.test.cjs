@@ -118,3 +118,24 @@ test('Tabler selections persist through admin saving and public reading; unknown
  }
  assert.equal(row.version,version);assert.equal(row.config.links[0].icon,'tabler:outline/brand-whatsapp');
 });
+
+test('typography and image sizes persist by link ID, survive old tabs and can explicitly return to defaults',async()=>{
+ const f=await fixture(),token=f.session(f.staff);
+ const first=hubLink({title:'Primeiro',appearance:{image_scale:125,text:{title:{font:'montserrat',size:27}}}});
+ const second=hubLink({title:'Segundo',appearance:{image_scale:80,text:{subtitle:{font:'lora',size:17}}}});
+ const draft=hubConfig({appearance:{font:'poppins',logo_scale:140,text:{bio:{font:'inter',size:36}}},links:[first,second]});
+ const saved=await f.call({action:'save_link_hub',version:1,config:draft},token);
+ const page=await f.readPage();assert.equal(page.config.appearance.font,'poppins');assert.equal(page.config.appearance.logo_scale,140);assert.equal(page.config.appearance.text.bio.size,36);assert.equal(page.config.links[0].appearance.text.title.font,'montserrat');
+ const legacy={...saved.config,links:[{...saved.config.links[1]},{...saved.config.links[0]},hubLink({title:'Novo'})]};delete legacy.appearance;legacy.links.forEach(link=>delete link.appearance);
+ const updated=await f.call({action:'save_link_hub',version:2,config:legacy},token);
+ assert.equal(updated.config.appearance.font,'poppins');assert.equal(updated.config.appearance.logo_scale,140);
+ assert.equal(updated.config.links[0].id,second.id);assert.equal(updated.config.links[0].appearance.image_scale,80);
+ assert.equal(updated.config.links[1].id,first.id);assert.equal(updated.config.links[1].appearance.text.title.size,27);
+ assert.equal(updated.config.links[2].appearance.image_scale,100);
+ const reset={...updated.config,appearance:{},links:updated.config.links.map(link=>({...link,appearance:{}}))};
+ const final=await f.call({action:'save_link_hub',version:3,config:reset},token);
+ assert.equal(final.config.appearance.logo_scale,100);assert.equal(final.config.appearance.font,'system');assert.equal(final.config.links[1].appearance.text.title.size,null);
+ await f.call({action:'save_link_hub',version:4,config:{...final.config,appearance:{font:'arbitrary-css'}}},token,400);
+ await f.call({action:'save_link_hub',version:4,config:{...final.config,links:[hubLink({appearance:{image_scale:200}})]}},token,400);
+ assert.equal(f.catalogDb.yp_link_hub[0].version,4);
+});
