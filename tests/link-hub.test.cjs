@@ -118,3 +118,32 @@ test('public cards and social links render selected Tabler SVGs, including legac
   assert.match(html, /outline\/brand-instagram.svg/);
   assert.match(html, /background-color:currentColor/);
 });
+
+const { HUB_FONTS, parsePageAppearance, parseCardAppearance, hubTextCss } = load('lib/link-appearance.ts');
+test('appearance defaults preserve existing responsive design, and sizes/fonts use a strict allowlist', () => {
+  const normalized = parseLinkHub(config());
+  assert.equal(normalized.appearance.font, 'system');assert.equal(normalized.appearance.logo_scale, 100);
+  assert.equal(normalized.links[0].appearance.image_scale, 100);
+  assert.ok(Object.values(normalized.appearance.text).every(value => value.font === 'inherit' && value.size === null));
+  for (const font of HUB_FONTS) assert.equal(parsePageAppearance({ font: font.id }).font, font.id);
+  for (const value of [null, [], { font: 'url(evil)' }, { font: null }, { logo_scale: 171 }, { logo_scale: '100' }, { logo_scale: 49 }, { text: { bio: { size: 53 } } }, { text: { name: { font: null } } }]) assert.throws(() => parsePageAppearance(value));
+  for (const value of [{ image_scale: 151 }, { image_scale: NaN }, { text: { title: { font: 'unknown' } } }, { text: { subtitle: { size: -1 } } }, { text: { badge: { size: 12.5 } } }]) assert.throws(() => parseCardAppearance(value));
+  assert.equal(Object.keys(hubTextCss({ font: 'inherit', size: null })).length, 0);
+  const inherited = hubTextCss({ font: 'inherit', size: null }, { font: 'inter', size: 20 });
+  assert.match(inherited.fontFamily, /--font-hub-inter/);assert.equal(inherited.fontSize, 20);
+});
+test('individual text and image choices reach both the public render and the live admin preview', () => {
+  const value = parseLinkHub(config({
+    appearance: { font: 'poppins', logo_scale: 135, text: { name: { font: 'lora', size: 30 }, bio: { size: 40 }, link_title: { font: 'inter', size: 22 }, footer: { size: 15 } } },
+    links: [link({ title: 'Individual', appearance: { image_scale: 125, text: { title: { font: 'playfair', size: 28 } } } }), link({ title: 'Herdado', style: 'card' })],
+  }));
+  for (const preview of [false, true]) {
+    const html = renderToStaticMarkup(React.createElement(LinkHub, { initialConfig: value, preview }));
+    assert.match(html, /--font-hub-poppins/);assert.match(html, /--hub-logo-scale:1.35/);assert.match(html, /--hub-card-image-scale:1.25/);
+    assert.match(html, /<h1[^>]*style="font-family:var\(--font-hub-lora\), Georgia, serif;font-size:30px"/);
+    assert.match(html, /style="font-size:40px">Grandes resultados/);
+    assert.match(html, /<strong style="font-family:var\(--font-hub-playfair\), Georgia, serif;font-size:28px">Individual/);
+    assert.match(html, /<strong style="font-family:var\(--font-hub-inter\), Arial, sans-serif;font-size:22px">Herdado/);
+    assert.match(html, /<p style="font-size:15px">Paraná/);
+  }
+});

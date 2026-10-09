@@ -2,13 +2,15 @@
 
 import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { ArrowDown, ArrowUp, Check, ChevronDown, ExternalLink, Eye, ImagePlus, Link2, LoaderCircle, MousePointer2, Plus, RefreshCw, Save, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, ChevronDown, ExternalLink, Eye, ImagePlus, Link2, LoaderCircle, MousePointer2, Plus, RefreshCw, Save, Trash2, Type } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, dateTime } from '@/lib/portal';
 import { linkIsVisible, parseLinkHub, type HubLink, type LinkHubConfig, type LinkHubRecord, type LinkHubStats } from '@/lib/link-hub';
 import LinkHub from '@/components/links/link-hub';
 import { HubIcon } from '@/components/links/hub-icon';
 import { tablerIconLabel } from '@/lib/tabler-icons';
+import { parseCardAppearance, parsePageAppearance } from '@/lib/link-appearance';
+import PageTypography, { CardAppearanceControls, SizeControl } from './link-appearance-controls';
 import { Switch } from '@/components/ui/switch';
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import styles from './admin-links.module.css';
@@ -52,7 +54,7 @@ export default function AdminLinks() {
   const disabled = busy || uploads > 0;
   async function load() {
     setLoading(true); setError('');
-    try { const result = await api('admin_link_hub', {}, true); setSaved(result.page); setDraft(result.page.config); setStats(result.stats); }
+    try { const result = await api('admin_link_hub', {}, true); const config = parseLinkHub(result.page.config); setSaved({ ...result.page, config }); setDraft(config); setStats(result.stats); }
     catch (e) { setError(e instanceof Error ? e.message : 'Não foi possível carregar a página.'); }
     finally { setLoading(false); }
   }
@@ -69,7 +71,7 @@ export default function AdminLinks() {
     setDraft(current => { if (!current) return current; const links = [...current.links], index = links.findIndex(link => link.id === id), target = index + direction; if (target < 0 || target >= links.length) return current; [links[index], links[target]] = [links[target], links[index]]; return { ...current, links }; });
   }
   function addLink() {
-    const link: HubLink = { id: crypto.randomUUID(), title: '', subtitle: '', url: '', image_url: '', badge: '', icon: 'link', style: 'card', enabled: true, starts_at: null, ends_at: null };
+    const link: HubLink = { id: crypto.randomUUID(), title: '', subtitle: '', url: '', image_url: '', badge: '', icon: 'link', style: 'card', enabled: true, starts_at: null, ends_at: null, appearance: parseCardAppearance(undefined) };
     setDraft(current => current ? { ...current, links: [...current.links, link] } : current); setExpanded(link.id); setMobilePreview(false);
   }
   async function save(event: React.FormEvent) {
@@ -87,6 +89,7 @@ export default function AdminLinks() {
   }
   if (loading && !draft) return <section className="admin-panel"><p className="management-empty" role="status"><LoaderCircle className="spin" size={20} />Carregando sua página de links…</p></section>;
   if (!draft || !saved) return <section className="admin-panel management-panel"><div className="management-panel-body"><p className="error-box" role="alert">{error}</p><button className="btn secondary" onClick={() => void load()}><RefreshCw size={16} />Tentar novamente</button></div></section>;
+  const appearance = parsePageAppearance(draft.appearance);
   const iconLink = draft.links.find(link => link.id === iconTarget);
   const pageUrl = saved.config.public_url || 'https://pedidos.yogomarcas.com.br/links';
   const changeUpload = (delta: number) => setUploads(current => current + delta);
@@ -98,6 +101,7 @@ export default function AdminLinks() {
       <form ref={formRef} onSubmit={save} className={styles.editor} noValidate><fieldset disabled={disabled || loading}>
         <section className="admin-panel management-panel"><div className="panel-heading management-panel-heading"><div className="management-heading-copy"><h3>Perfil e aparência</h3><p>A primeira impressão da sua marca.</p></div></div><div className={`management-panel-body ${styles.fields}`}>
           <ImageField label="Logo ou foto do perfil" value={draft.logo_url} onChange={logo_url => patch({ logo_url })} onUpload={changeUpload} />
+          <SizeControl label="Tamanho da logo" value={appearance.logo_scale === 100 ? null : appearance.logo_scale} fallback={100} min={50} max={170} unit="%" step={5} onChange={logo_scale => patch({ appearance: { ...appearance, logo_scale: logo_scale ?? 100 } })} />
           <Field label="Formato da imagem" hint="Original preserva o arquivo inteiro. Redondo e quadrado recortam a imagem no centro."><select value={draft.logo_shape ?? 'original'} onChange={event => patch({ logo_shape: event.target.value as LinkHubConfig['logo_shape'] })}><option value="original">Original (sem corte)</option><option value="circle">Redondo</option><option value="rounded">Quadrado com cantos arredondados</option></select></Field>
           <label className={styles.profileToggle}><div><strong>Fundo branco atrás da imagem</strong><p>Desative para mostrar só a logo, sem a moldura branca. Para transparência, envie um PNG ou WebP sem fundo.</p></div><Switch checked={draft.logo_background ?? false} onCheckedChange={logo_background => patch({ logo_background })} aria-label="Fundo branco atrás da imagem" /></label>
           <Field label="Nome da página" hint="O nome pode aparecer abaixo da logo, separado da imagem."><input value={draft.title} maxLength={80} onChange={event => patch({ title: event.target.value })} /></Field>
@@ -108,6 +112,7 @@ export default function AdminLinks() {
           <Field label="Rodapé"><textarea rows={2} value={draft.footer} maxLength={180} onChange={event => patch({ footer: event.target.value })} /></Field>
           <details className={styles.advanced}><summary>Endereço para compartilhamento <ChevronDown size={16} /></summary><Field label="Endereço público (opcional)" hint="Preencha depois que o seu domínio estiver conectado. Vazio: usa o endereço atual da página."><input type="url" inputMode="url" maxLength={2000} placeholder="https://link.seudominio.com.br" value={draft.public_url} onChange={event => patch({ public_url: event.target.value })} /></Field></details>
         </div></section>
+        <section className="admin-panel management-panel"><details className={styles.typographyPanel}><summary><span className="management-heading-icon"><Type size={21} aria-hidden="true" /></span><span><strong>Fontes e tamanhos</strong><small>Personalize cada texto da página com Google Fonts.</small></span><span className={styles.customizeLabel}>Personalizar<ChevronDown size={17} /></span></summary><div className="management-panel-body"><PageTypography value={appearance} onChange={appearance => patch({ appearance })} examples={{ name: draft.title, bio: draft.bio, tagline: draft.tagline, link_title: draft.links[0]?.title, link_subtitle: draft.links[0]?.subtitle, link_badge: draft.links[0]?.badge || 'Novidade', footer: draft.footer, note: 'Conecte-se com a Yogo' }} /></div></details></section>
         <section className="admin-panel management-panel"><div className="panel-heading management-panel-heading"><div className="management-heading-copy"><h3>Seus links</h3><p>Escolha a ordem, o formato e o momento de aparecer.</p></div><button className="btn secondary" type="button" onClick={addLink} disabled={draft.links.length >= 50 || disabled}><Plus size={16} />Adicionar</button></div><div className={`management-panel-body ${styles.linkList}`}>
           {!draft.links.length && <p className={styles.hint}>Adicione o primeiro link para começar.</p>}
           {draft.links.map((link, index) => <article className={styles.linkItem} key={link.id}><div className={styles.linkHeading}>
@@ -120,6 +125,7 @@ export default function AdminLinks() {
               <Field label="Endereço *" hint="Use https:// para sites, mailto: para e-mail ou tel: para telefone."><input inputMode="url" value={link.url} maxLength={2000} placeholder="https://…" onChange={event => patchLink(link.id, { url: event.target.value })} /></Field>
               <div className={styles.twoColumns}><Field label="Formato"><select value={link.style} onChange={event => patchLink(link.id, { style: event.target.value as HubLink['style'] })}><option value="card">Botão com descrição</option><option value="featured">Card em destaque</option><option value="social">Ícone social no perfil</option></select></Field><div className={styles.iconField}><span className={styles.fieldLabel}>Ícone</span><button type="button" className={styles.iconButton} aria-label={`Escolher ícone de ${link.title || 'novo link'}`} aria-haspopup="dialog" onClick={event => { iconTrigger.current = event.currentTarget; setIconTarget(link.id); }}><HubIcon name={link.icon} size={23} /><span><strong>Escolher ícone</strong><small>{tablerIconLabel(link.icon)}</small></span><ChevronDown size={16} /></button><small className={styles.hint}>Abra a biblioteca Tabler e pesquise pelo nome.</small></div></div>
               {link.style !== 'social' && <><Field label="Descrição (opcional)"><textarea rows={2} maxLength={180} value={link.subtitle} onChange={event => patchLink(link.id, { subtitle: event.target.value })} /></Field><Field label="Etiqueta (opcional)"><input maxLength={30} placeholder="Ex.: Novidade" value={link.badge} onChange={event => patchLink(link.id, { badge: event.target.value })} /></Field><ImageField label="Imagem do link (opcional)" value={link.image_url} onChange={image_url => patchLink(link.id, { image_url })} onUpload={changeUpload} /></>}
+              {link.style !== 'social' && <details className={styles.advanced}><summary>Imagem, fonte e tamanho deste link<ChevronDown size={16} /></summary><CardAppearanceControls value={parseCardAppearance(link.appearance)} onChange={appearance => patchLink(link.id, { appearance })} page={appearance} hasImage={!!link.image_url} featured={link.style === 'featured'} examples={{ title: link.title, subtitle: link.subtitle, badge: link.badge }} /></details>}
               <details className={styles.advanced}><summary>Agendar visibilidade <ChevronDown size={16} /></summary><div className={styles.twoColumns}><Field label="Mostrar a partir de"><input type="datetime-local" value={localDate(link.starts_at)} onChange={event => patchLink(link.id, { starts_at: toIso(event.target.value) })} /></Field><Field label="Ocultar a partir de"><input type="datetime-local" value={localDate(link.ends_at)} onChange={event => patchLink(link.id, { ends_at: toIso(event.target.value) })} /></Field></div><p className={styles.hint}>Horário do seu dispositivo. Deixe vazio para não limitar. Links ocultos continuam ocultos, mesmo no período agendado.</p></details>
             </div>}
           </article>)}

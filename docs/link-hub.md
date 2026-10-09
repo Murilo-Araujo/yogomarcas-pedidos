@@ -83,3 +83,28 @@ Ao atualizar a dependência, execute `npm run icons:update`, revise e versione o
 catálogo gerado; publique a API com as dependências acima antes do frontend.
 As opções de aparência vivem no JSON existente e não exigem migração. Edições
 vindas de uma aba antiga preservam as opções de perfil ausentes no envio.
+
+## Fontes e tamanhos
+
+Em **Perfil e aparência**, o controle de tamanho da logo varia de 50% a 170%,
+preservando o formato escolhido. **Fontes e tamanhos → Personalizar** permite
+escolher uma fonte padrão e configurar separadamente nome, apresentação, frase de
+apoio, títulos/descrições/etiquetas dos links, rodapé e chamada no topo.
+
+Opções do Google Fonts: Inter, Poppins, Montserrat, Nunito, DM Sans, Roboto, Lora
+e Playfair Display. Arial mantém a aparência anterior. Next.js hospeda os arquivos
+no próprio site, com `font-display: swap` e sem pré-carregar fontes não utilizadas.
+As variáveis de fonte ficam disponíveis no layout, mas só a página de links e suas
+prévias adotam as escolhas; pedidos e catálogo mantêm suas fontes.
+
+Cada link também possui **Imagem, fonte e tamanho deste link** para sobrepor as
+opções gerais, além de ajustar sua imagem de 50% a 150%. O tamanho da imagem altera
+o espaço reservado, mantendo a proporção e o arquivo inteiro. Os controles têm
+botões de aumentar/diminuir, barra de ajuste e retorno ao padrão. Tamanho automático
+preserva as diferenças entre formatos de card e a adaptação ao celular.
+
+As escolhas vivem em `config.appearance` e `links[].appearance`. A API valida
+fontes e limites, mantém herança entre página e links e preserva os valores se
+uma aba antiga enviar dados sem esses campos. A prévia usa a mesma renderização
+da página pública, e **Salvar e publicar** aplica tudo junto. Nenhuma migração SQL
+é necessária; incluir `lib/link-appearance.ts` na publicação de `order-portal`.

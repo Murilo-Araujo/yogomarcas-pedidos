@@ -6,6 +6,7 @@ import { HubIcon } from './hub-icon';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { API_URL, SUPABASE_KEY } from '@/lib/config';
 import { contrastInk, linkIsVisible, publicLinkHub, type HubLink, type LinkHubConfig } from '@/lib/link-hub';
+import { hubFontFamily, hubTextCss, parseCardAppearance, parsePageAppearance, type PageAppearance } from '@/lib/link-appearance';
 import styles from './link-hub.module.css';
 
 function recordEvent(key: string) {
@@ -15,13 +16,14 @@ function recordEvent(key: string) {
     body: JSON.stringify({ action: 'link_hub_event', key }),
   }).catch(() => {});
 }
-function CardContent({ link }: { link: HubLink }) {
+function CardContent({ link, page }: { link: HubLink; page: PageAppearance }) {
+  const appearance = parseCardAppearance(link.appearance);
   return <>
-    {link.image_url ? <span className={styles.cardImage}><img src={link.image_url} alt="" loading="lazy" /></span> : <span className={styles.cardIcon}><HubIcon name={link.icon} /></span>}
+    {link.image_url ? <span className={styles.cardImage} style={{ '--hub-card-image-scale': appearance.image_scale / 100 } as CSSProperties}><img src={link.image_url} alt="" loading="lazy" /></span> : <span className={styles.cardIcon}><HubIcon name={link.icon} /></span>}
     <span className={styles.cardCopy}>
-      {link.badge && <span className={styles.badge}>{link.badge}</span>}
-      <strong>{link.title}</strong>
-      {link.subtitle && <span className={styles.subtitle}>{link.subtitle}</span>}
+      {link.badge && <span className={styles.badge} style={hubTextCss(appearance.text.badge, page.text.link_badge)}>{link.badge}</span>}
+      <strong style={hubTextCss(appearance.text.title, page.text.link_title)}>{link.title}</strong>
+      {link.subtitle && <span className={styles.subtitle} style={hubTextCss(appearance.text.subtitle, page.text.link_subtitle)}>{link.subtitle}</span>}
     </span>
     <span className={styles.arrow}><ArrowUpRight size={20} strokeWidth={1.7} aria-hidden="true" /></span>
   </>;
@@ -74,7 +76,8 @@ export default function LinkHub({ initialConfig, preview = false }: { initialCon
   if (!config) return <main className={styles.page}><div className={styles.unavailable}><img src="/assets/logo.png" alt="Yogomarcas" width="224" /><h1>Vamos nos conectar?</h1><p>Não foi possível carregar os links agora. Tente novamente em instantes.</p><a href="/links">Tentar novamente</a></div></main>;
   const links = config.links.filter(link => linkIsVisible(link, now ?? Date.now()));
   const cards = links.filter(link => link.style !== 'social'), socials = links.filter(link => link.style === 'social');
-  const variables = { '--hub-background': config.background_color, '--hub-accent': config.accent_color, '--hub-ink': contrastInk(config.background_color), '--hub-accent-ink': contrastInk(config.accent_color) } as CSSProperties;
+  const appearance = parsePageAppearance(config.appearance);
+  const variables = { fontFamily: hubFontFamily(appearance.font), '--hub-logo-scale': appearance.logo_scale / 100, '--hub-background': config.background_color, '--hub-accent': config.accent_color, '--hub-ink': contrastInk(config.background_color), '--hub-accent-ink': contrastInk(config.accent_color) } as CSSProperties;
   const follow = (event: React.MouseEvent<HTMLAnchorElement>, link: HubLink) => {
     if (preview) { event.preventDefault(); return; }
     recordEvent(link.id);
@@ -92,17 +95,17 @@ export default function LinkHub({ initialConfig, preview = false }: { initialCon
     <main className={`${styles.page} ${preview ? styles.preview : ''}`} style={variables}>
       <div className={styles.orbit} aria-hidden="true" />
       <div className={styles.shell}>
-        <div className={styles.topbar}><span className={styles.brandNote}><span aria-hidden="true" />Conecte-se com a Yogo</span><button className={styles.shareButton} onClick={openShare} disabled={preview} aria-label="Compartilhar página"><Share2 size={19} strokeWidth={1.8} /></button></div>
+        <div className={styles.topbar}><span className={styles.brandNote} style={hubTextCss(appearance.text.note)}><span aria-hidden="true" />Conecte-se com a Yogo</span><button className={styles.shareButton} onClick={openShare} disabled={preview} aria-label="Compartilhar página"><Share2 size={19} strokeWidth={1.8} /></button></div>
         <header className={styles.profile}>
           {config.logo_url && <div className={styles.logo} data-shape={config.logo_shape ?? 'original'} data-background={config.logo_background ?? false}><img src={config.logo_url} alt={config.title} width="250" height="250" /></div>}
-          <h1 className={(config.show_title ?? true) ? styles.nameVisible : styles.name}>{config.title}</h1>
-          {config.bio && <p className={styles.bio}>{config.bio}</p>}
-          {config.tagline && <p className={styles.tagline}>{config.tagline}</p>}
+          <h1 className={(config.show_title ?? true) ? styles.nameVisible : styles.name} style={hubTextCss(appearance.text.name)}>{config.title}</h1>
+          {config.bio && <p className={styles.bio} style={hubTextCss(appearance.text.bio)}>{config.bio}</p>}
+          {config.tagline && <p className={styles.tagline} style={hubTextCss(appearance.text.tagline)}>{config.tagline}</p>}
           {socials.length > 0 && <nav className={styles.socials} aria-label="Redes sociais">{socials.map(link => <a key={link.id} href={link.url} onClick={event => follow(event, link)} aria-label={link.title} title={link.title} rel="noopener noreferrer" target="_blank"><HubIcon name={link.icon} size={22} /></a>)}</nav>}
         </header>
-        <nav className={styles.cards} aria-label="Links da Yogomarcas">{cards.map(link => <a key={link.id} className={`${styles.card} ${link.style === 'featured' ? styles.featured : ''}`} href={link.url} onClick={event => follow(event, link)} target="_blank" rel="noopener noreferrer"><CardContent link={link} /></a>)}</nav>
+        <nav className={styles.cards} aria-label="Links da Yogomarcas">{cards.map(link => <a key={link.id} className={`${styles.card} ${link.style === 'featured' ? styles.featured : ''}`} href={link.url} onClick={event => follow(event, link)} target="_blank" rel="noopener noreferrer"><CardContent link={link} page={appearance} /></a>)}</nav>
         {!cards.length && <p className={styles.empty}>Novidades chegando por aqui. Acompanhe a Yogo!</p>}
-        <footer className={styles.footer}><span className={styles.footerMark} aria-hidden="true">y.</span>{config.footer && <p>{config.footer}</p>}<button onClick={openShare} disabled={preview}><QrCode size={16} aria-hidden="true" />Compartilhe a Yogo</button></footer>
+        <footer className={styles.footer}><span className={styles.footerMark} aria-hidden="true">y.</span>{config.footer && <p style={hubTextCss(appearance.text.footer)}>{config.footer}</p>}<button style={hubTextCss(appearance.text.footer)} onClick={openShare} disabled={preview}><QrCode size={16} aria-hidden="true" />Compartilhe a Yogo</button></footer>
       </div>
     </main>
     {!preview && <Dialog open={shareOpen} onOpenChange={setShareOpen}><DialogContent className={styles.shareDialog} showCloseButton={false}>

@@ -1,4 +1,5 @@
 import { isLinkIcon, type LinkIcon } from './tabler-icons.ts';
+import { parseCardAppearance, parsePageAppearance, type CardAppearance, type PageAppearance } from './link-appearance.ts';
 export type { LinkIcon } from './tabler-icons.ts';
 export type HubLink = {
   id: string;
@@ -12,6 +13,7 @@ export type HubLink = {
   enabled: boolean;
   starts_at: string | null;
   ends_at: string | null;
+  appearance: CardAppearance;
 };
 export type LinkHubConfig = {
   title: string;
@@ -21,6 +23,7 @@ export type LinkHubConfig = {
   logo_shape: 'original' | 'circle' | 'rounded';
   logo_background: boolean;
   show_title: boolean;
+  appearance: PageAppearance;
   background_color: string;
   accent_color: string;
   footer: string;
@@ -86,6 +89,7 @@ export function parseLinkHub(value: unknown): LinkHubConfig {
       id, title: text(item.title, 'Título do link', 90, true), subtitle: text(item.subtitle, 'Descrição do link', 180),
       url: linkUrl(item.url), icon: item.icon as LinkIcon, image_url: imageUrl(item.image_url),
       badge: text(item.badge, 'Etiqueta', 30), style: item.style as HubLink['style'], enabled: item.enabled, starts_at, ends_at,
+      appearance: parseCardAppearance(item.appearance),
     };
   });
   const color = (value: unknown) => {
@@ -101,6 +105,7 @@ export function parseLinkHub(value: unknown): LinkHubConfig {
     title: text(source.title, 'Nome da página', 80, true), bio: text(source.bio, 'Apresentação', 240),
     tagline: text(source.tagline, 'Frase de apoio', 120), logo_url: imageUrl(source.logo_url),
     logo_shape: logo_shape as LinkHubConfig['logo_shape'], logo_background, show_title,
+    appearance: parsePageAppearance(source.appearance),
     background_color: color(source.background_color), accent_color: color(source.accent_color),
     footer: text(source.footer, 'Rodapé', 180), public_url: linkUrl(source.public_url, 'Endereço público', true, true), links,
   };
