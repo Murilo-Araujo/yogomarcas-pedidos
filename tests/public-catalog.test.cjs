@@ -39,16 +39,17 @@ const fixture = () => ({
   upsell_rules: [{special_price: 1000}],
 });
 
-test('public payload excludes financial values, internal codes and order settings', () => {
+test('public payload excludes package weights, financial values, internal codes and order settings', () => {
   const source = fixture();
   source.products[0].future_private_field = 'PRIVATE';
   source.flavors[0].future_price_field = 9999;
   const result = JSON.parse(JSON.stringify(toPublicCatalog(source)));
   const output = JSON.stringify(result);
-  assert.doesNotMatch(output, /price|minimum|upsell|sku|settings|INTERNAL|PRIVATE|CONTACT|6260|31300/);
+  assert.doesNotMatch(output, /price|weight|minimum|upsell|sku|settings|INTERNAL|PRIVATE|CONTACT|6260|31300/);
   assert.equal(result.products.length, 1);
   assert.equal(result.flavors[0].name, 'CHOCOLATE');
-  assert.equal(result.flavors[0].package_weight_grams, 1800);
+  assert.equal(source.flavors[0].package_weight_grams, 1800);
+  assert.equal(result.flavors[0].package_weight_grams, undefined);
 });
 
 test('hidden lines, products and flavors never appear through their children', () => {
@@ -81,6 +82,10 @@ test('anonymous initial render includes flavors without prices or ordering/accou
   assert.match(html, /CHOCOLATE/);
   assert.match(html, /Buscar linha ou sabor/);
   assert.match(html, /Sobre esta linha/);
+  assert.match(html, /Ver sabores/);
+  assert.match(html, /<details[ >]/);
+  assert.doesNotMatch(html, /<details\b[^>]*\bopen(?:=|[ >])/);
+  assert.doesNotMatch(html, /1\.800 g|Peso por pacote/);
   assert.doesNotMatch(html, /R\$|package_price|bundle_price|carrinho|cadastro|password|whatsapp|href="\/"|href="\/admin"/i);
 });
 
@@ -97,7 +102,7 @@ test('public about panels match normal order details with live yields and all ac
   assert.match(publicPanel, /5,5 a 6 kg/);
   assert.match(publicPanel, /4 litros de água/);
   assert.match(publicPanel, /2 minutos/);
-  assert.match(publicPanel, /1\.650 a 1\.800 g, conforme o sabor/);
+  assert.doesNotMatch(publicPanel, /Peso por pacote|1\.650 a 1\.800 g/);
   assert.equal(catalog.products[0].details.flavorCount, 2);
   assert.doesNotMatch(JSON.stringify(catalog), /package_price|bundle_price|"sku"|FLAVOR-INTERNAL|R\$/);
 });
@@ -121,7 +126,10 @@ test('preparation and packaging stay specific to each line, including Saborize a
   const support = toPublicCatalog(source).products[0].details;
   assert.equal(support.preparation, null);
   assert.equal(support.yieldLabel, null);
-  assert.equal(support.weightLabel, '170 g');
+  assert.equal(support.weightLabel, undefined);
+  const html = renderToStaticMarkup(React.createElement(PublicCatalogView, {catalog: toPublicCatalog(source)}));
+  assert.doesNotMatch(html, /170 g|Peso por pacote/);
+  assert.equal(source.products[0].package_weight_grams, 170);
 });
 
 test('empty and failed catalog renders are readable and do not send visitors to orders', () => {

@@ -35,7 +35,7 @@ function ProductCard({p,flavors,onAdd,onDetails,enabled}:{p:Product;flavors:Flav
  useEffect(()=>{const el=ref.current;if(!el)return;const observer=new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting)){track('product_view',p.id,true);observer.disconnect();}},{threshold:.4});observer.observe(el);return()=>observer.disconnect();},[p.id]);
  const price=p.has_flavors?startingPrice(p,flavors):mode==='package'?p.package_price:p.bundle_price;const available=enabled&&p.available&&!!price;
  const flavorCount=flavors.filter(f=>f.product_id===p.id&&f.active).length;
- const badge=p.has_flavors?`${flavorCount} ${flavorCount===1?'sabor':'sabores'}`:p.package_weight_grams?`${p.package_weight_grams.toLocaleString('pt-BR')} g por pacote`:p.package_label;
+ const badge=p.has_flavors?`${flavorCount} ${flavorCount===1?'sabor':'sabores'}`:p.package_label;
  const description=p.description.split(/(?<=[.!?])\s+/)[0];
  return <article className={`product-card catalog-product${!p.available?' catalog-product-unavailable':''}`} ref={ref}>
   <div className="product-media">

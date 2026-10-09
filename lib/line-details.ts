@@ -9,7 +9,6 @@ export type LineDetailsData = {
   hasFlavors: boolean;
   preparation: Preparation | null;
   flavorCount: number;
-  weightLabel: string;
   yieldLabel: string | null;
   bundleEnabled: boolean;
   bundleUnits: number;
@@ -56,14 +55,6 @@ const number = (value: number) => value.toLocaleString('pt-BR', {maximumFraction
 // Only presentation data leaves this function: no prices or internal codes.
 export function getLineDetails(product: Product, flavors: Flavor[]): LineDetailsData {
   const activeFlavors = flavors.filter(flavor => flavor.product_id === product.id && flavor.active);
-  const weights = (product.has_flavors ? activeFlavors.map(flavor => flavor.package_weight_grams) : [product.package_weight_grams])
-    .filter((weight): weight is number => typeof weight === 'number' && Number.isFinite(weight) && weight > 0);
-  const minWeight = weights.length ? Math.min(...weights) : null;
-  const maxWeight = weights.length ? Math.max(...weights) : null;
-  const allWeightsKnown = !product.has_flavors || weights.length === activeFlavors.length;
-  const weightLabel = minWeight && maxWeight && allWeightsKnown
-    ? minWeight === maxWeight ? `${number(minWeight)} g` : `${number(minWeight)} a ${number(maxWeight)} g, conforme o sabor`
-    : 'Consulte o peso na seleção do produto.';
   const maxYield = product.yield_grams, minYield = product.yield_min_grams;
   const showYield = typeof maxYield === 'number' && Number.isFinite(maxYield) && maxYield > 0;
   const yieldLabel = showYield
@@ -75,7 +66,6 @@ export function getLineDetails(product: Product, flavors: Flavor[]): LineDetails
     hasFlavors: !!product.has_flavors,
     preparation: getProductPreparation(product),
     flavorCount: activeFlavors.length,
-    weightLabel,
     yieldLabel,
     bundleEnabled: product.bundle_enabled !== false,
     bundleUnits: BUNDLE_UNITS,
