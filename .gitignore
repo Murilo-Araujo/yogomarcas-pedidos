@@ -42,3 +42,6 @@ next-env.d.ts
 /work/
 *.tsbuildinfo
 .vercel-upload/
+
+# Supabase CLI local cache
+/supabase/.temp/

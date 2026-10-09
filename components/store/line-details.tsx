@@ -1,5 +1,5 @@
 import type {ReactNode} from 'react';
-import {Boxes,Clock3,Droplets,Package,Scale,Utensils} from 'lucide-react';
+import {Boxes,Clock3,Droplets,Package,Scale,Utensils,Info} from 'lucide-react';
 import type {Flavor,Product} from '@/lib/portal';
 import {getLineDetails, type LineDetailsData} from '@/lib/line-details';
 
@@ -15,9 +15,9 @@ export function LineDetailsContent({details,children}:{details:LineDetailsData;c
    <div><span className="line-about-label">{details.hasFlavors?'Conheça a linha':'Conheça o produto'}</span><p>{details.description}</p></div>
   </div>
 
-  {preparation?.waterLitres&&preparation.minutes?<dl className="line-prep-facts" aria-label="Preparo por pacote">
-   <div><Droplets size={21} aria-hidden="true"/><div><dt>Água por pacote</dt><dd>{preparation.waterLitres} <span>litros</span></dd></div></div>
-   <div><Clock3 size={21} aria-hidden="true"/><div><dt>Tempo de mistura</dt><dd>{preparation.minutes} <span>minutos</span></dd></div></div>
+  {(preparation?.waterLitres||preparation?.minutes)?<dl className="line-prep-facts" aria-label="Preparo por pacote">
+   {preparation.waterLitres?<div><Droplets size={21} aria-hidden="true"/><div><dt>Água por pacote</dt><dd>{preparation.waterLitres} <span>litros</span></dd></div></div>:null}
+   {preparation.minutes?<div><Clock3 size={21} aria-hidden="true"/><div><dt>Tempo de mistura</dt><dd>{preparation.minutes} <span>minutos</span></dd></div></div>:null}
   </dl>:null}
 
   {preparation?<section className="line-preparation" aria-label={preparation.title}>
@@ -30,6 +30,8 @@ export function LineDetailsContent({details,children}:{details:LineDetailsData;c
    <Scale size={22} aria-hidden="true"/>
    <div><h3>Rendimento estimado</h3><strong>{yieldLabel} <span>de calda por pacote</span></strong><p>Referência para planejamento. O rendimento varia conforme o sabor e as condições de preparo e operação.</p></div>
   </section>:null}
+
+  {!!details.additionalInfo?.length&&<section className="line-extra-info" aria-label="Informações adicionais"><h3><Info size={18} aria-hidden="true"/>Informações adicionais</h3><dl>{details.additionalInfo.map((item,index)=><div key={index}><dt>{item.title}</dt><dd>{item.text}</dd></div>)}</dl></section>}
 
   <section className="line-packaging" aria-label="Embalagem e opções">
    <h3><Package size={18} aria-hidden="true"/>Embalagem e opções</h3>

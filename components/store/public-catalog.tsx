@@ -1,4 +1,5 @@
 'use client';
+import CatalogHighlights from './catalog-highlights';
 
 import { useState } from 'react';
 import Image from 'next/image';
@@ -24,7 +25,7 @@ function ProductPhoto({ product, priority }: { product: PublicProduct; priority:
 function ProductSection({ product, flavors, totalFlavors, priority }: {
   product: PublicProduct; flavors: PublicFlavor[]; totalFlavors: number; priority: boolean;
 }) {
-  return <article className={styles.product} aria-labelledby={`product-${product.id}`}>
+  return <article id={`catalog-product-${product.id}`} tabIndex={-1} className={styles.product} aria-labelledby={`product-${product.id}`}>
     <div className={styles.productIntro}>
       <ProductPhoto product={product} priority={priority} />
       <div className={styles.productInfo}>
@@ -113,6 +114,7 @@ export default function PublicCatalogView({ catalog }: { catalog: PublicCatalog 
       </div> : !catalog.products.length ? <div className={styles.empty}>
         <BookOpen size={32} aria-hidden="true" /><h2>Catálogo em atualização</h2><p>Volte em breve para conhecer nossas linhas e sabores.</p>
       </div> : <>
+        <CatalogHighlights highlights={catalog.highlights} products={catalog.products} onSelect={id => {resetFilters();requestAnimationFrame(() => {const target=document.getElementById(`catalog-product-${id}`);target?.scrollIntoView({behavior:'smooth',block:'start'});target?.focus({preventScroll:true});});}}/>
         <div className={styles.toolbar}>
           <div className={styles.lineFilters} role="group" aria-label="Filtrar por linha">
             <button type="button" aria-pressed={lineId === 'all'} onClick={() => setLineId('all')}>Todas as linhas</button>

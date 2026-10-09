@@ -115,7 +115,7 @@ test('preparation and packaging stay specific to each line, including Saborize a
   const source = fixture();
   Object.assign(source.products[0], {sku: 'YOGO-SAB', yield_grams: 6000});
   const savor = toPublicCatalog(source).products[0].details;
-  assert.equal(savor.yieldLabel, null);
+  assert.equal(savor.yieldLabel, 'Cerca de 6 kg');
   assert.match(savor.preparation.steps.join(' '), /1 colher de chá para cada 300 ml/);
   Object.assign(source.products[0], {sku: 'LUB', has_flavors: false, yield_grams: null, package_weight_grams: 170});
   const support = toPublicCatalog(source).products[0].details;
@@ -132,3 +132,6 @@ test('empty and failed catalog renders are readable and do not send visitors to 
   assert.match(empty, /Catálogo em atualização/);
   assert.doesNotMatch(failed + empty, /href="\/"|password|carrinho/i);
 });
+
+test('custom preparations and product claims appear on both catalogs without requiring a known SKU',()=>{const source=fixture();Object.assign(source.products[0],{sku:'SOFT-PROT',preparation:{title:'Preparo especial',steps:['Adicione os ingredientes.'],minutes:3},additional_info:[{title:'Proteína',text:'10 g por 100 g de sorvete pronto.'}],yield_grams:6000,yield_min_grams:5000});const details=toPublicCatalog(source).products[0].details;const html=renderToStaticMarkup(React.createElement(LineDetailsContent,{details}));assert.match(html,/Preparo especial/);assert.match(html,/10 g por 100 g/);assert.match(html,/Tempo de mistura/);assert.doesNotMatch(html,/Água por pacote/);source.products[0].sku='YOGO-EI';source.products[0].preparation=null;assert.equal(toPublicCatalog(source).products[0].details.preparation,null);});
+test('public highlight serialization excludes private metadata and hidden products',()=>{const source=fixture();source.highlights=[{id:'h',product_id:'product',title:'Novidade',description:'Novo mix',active:true,starts_at:'2026-01-01',expires_at:'2099-01-01',private_field:'SECRET'},{id:'h2',product_id:'hidden',active:true}];const data=toPublicCatalog(source);assert.equal(data.highlights.length,1);assert.doesNotMatch(JSON.stringify(data),/SECRET|private_field/);const html=renderToStaticMarkup(React.createElement(PublicCatalogView,{catalog:data}));assert.match(html,/Novidade/);assert.match(html,/catalog-highlight/);});

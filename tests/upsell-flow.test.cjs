@@ -2,6 +2,7 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=requir
 const root=path.resolve(__dirname,'..'),read=file=>fs.readFileSync(path.join(root,file),'utf8');
 const compile=source=>ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText;
 function load(file,deps={}){const exports={};vm.runInNewContext(compile(read(file)),{exports,require:name=>deps[name]||{}});return exports;}
+const address=load('lib/delivery-address.ts');
 const retention=load('lib/retention.ts'),portal=load('lib/portal.ts',{'./retention':retention});
 const {cartOffers,cartOffer,reconcileCartOffers,matchesOffer,orderMessage}=retention;
 const {resolveCart,setVariantQuantity}=portal;
@@ -22,9 +23,9 @@ const names=['ApiError','shoppingAction','saveOrder','upsellRuleInput'];
 const serverCode=source.statements.filter(n=>n.name&&names.includes(n.name.text)||ts.isVariableStatement(n)&&n.declarationList.declarations.some(d=>['uuid','str','integer'].includes(d.name.getText(source)))).map(n=>n.getText(source)).join('\n');
 function server(c){
  const profile={id:id(99),store_name:'Teste isolado',phone:'5545999999999',updated_at:'test-version',portions:[]};
- const context={...retention,crypto:require('node:crypto'),catalog:async()=>c,customerAuth:async()=>profile,rate:async()=>{},hash:async()=> 'test-hash',rpc:async(name,args)=>args,db:async(table,query,method,body)=>method==='POST'?[body]:[]};
+ const context={...retention,...address,crypto:require('node:crypto'),catalog:async()=>c,customerAuth:async()=>profile,rate:async()=>{},hash:async()=> 'test-hash',rpc:async(name,args)=>args,db:async(table,query,method,body)=>method==='POST'?[body]:[]};
  vm.createContext(context);vm.runInContext(compile(serverCode+'\n;globalThis.api={shoppingAction,saveOrder,upsellRuleInput};'),context);
- return {save:items=>context.api.shoppingAction({}, {revision:0,items},'customer_cart_save'),order:items=>context.api.saveOrder({id:id(90),session_id:id(91),client_token:id(92),profile_version:profile.updated_at,items,customer:{name:'Teste',city:'Cascavel',state:'PR'}}),rule:r=>context.api.upsellRuleInput(r,c)};
+ return {save:items=>context.api.shoppingAction({}, {revision:0,items},'customer_cart_save'),order:items=>context.api.saveOrder({id:id(90),session_id:id(91),client_token:id(92),profile_version:profile.updated_at,items,customer:{name:'Teste',city:'Cascavel',state:'PR',postal_code:'85800-000',street:'Rua Teste',number:'1',neighborhood:'Centro'}}),rule:r=>context.api.upsellRuleInput(r,c)};
 }
 
 test('chocolate triggers vanilla in the same line; other flavors do not',()=>{

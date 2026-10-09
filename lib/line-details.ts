@@ -1,9 +1,11 @@
 import type {Flavor, Product} from './portal';
 import {BUNDLE_UNITS} from './retention';
 
-export type Preparation = {waterLitres?: number; minutes?: number; title: string; steps: string[]; note?: string};
+import type {Preparation,ProductInformation} from './catalog-management';
+export type {Preparation} from './catalog-management';
 export type LineDetailsData = {
   description: string;
+  additionalInfo: ProductInformation[];
   hasFlavors: boolean;
   preparation: Preparation | null;
   flavorCount: number;
@@ -13,8 +15,7 @@ export type LineDetailsData = {
   bundleUnits: number;
 };
 
-// Preparation is transcribed in docs/catalog/prices-2026-09-05.json.
-// Both catalogs use these instructions and the same live weights/yields.
+// Compatibility for older API payloads. Persisted preparation (including null) always wins.
 function mixPreparation(waterLitres: number): Preparation {
   return {
     waterLitres, minutes: 2, title: 'Modo de preparo',
@@ -64,18 +65,23 @@ export function getLineDetails(product: Product, flavors: Flavor[]): LineDetails
     ? minWeight === maxWeight ? `${number(minWeight)} g` : `${number(minWeight)} a ${number(maxWeight)} g, conforme o sabor`
     : 'Consulte o peso na seleção do produto.';
   const maxYield = product.yield_grams, minYield = product.yield_min_grams;
-  const showYield = product.sku !== 'YOGO-SAB' && typeof maxYield === 'number' && Number.isFinite(maxYield) && maxYield > 0;
+  const showYield = typeof maxYield === 'number' && Number.isFinite(maxYield) && maxYield > 0;
   const yieldLabel = showYield
     ? minYield && minYield > 0 && minYield < maxYield ? `${number(minYield / 1000)} a ${number(maxYield / 1000)} kg` : `Cerca de ${number(maxYield / 1000)} kg`
     : null;
   return {
     description: product.description,
+    additionalInfo: product.additional_info ?? [],
     hasFlavors: !!product.has_flavors,
-    preparation: Object.hasOwn(PREPARATIONS, product.sku) ? PREPARATIONS[product.sku] : null,
+    preparation: getProductPreparation(product),
     flavorCount: activeFlavors.length,
     weightLabel,
     yieldLabel,
     bundleEnabled: product.bundle_enabled !== false,
     bundleUnits: BUNDLE_UNITS,
   };
+}
+
+export function getProductPreparation(product: Product): Preparation | null {
+  return product.preparation !== undefined ? product.preparation : (Object.hasOwn(PREPARATIONS, product.sku) ? PREPARATIONS[product.sku] : null);
 }

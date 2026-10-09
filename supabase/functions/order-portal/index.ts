@@ -1,3 +1,4 @@
+import {preparationInput,informationInput} from '../../../lib/catalog-management.ts';
 import {BUNDLE_UNITS,bundlePrice,orderMessage,cartOffers,matchesOffer} from '../../../lib/retention.ts';
 import {calculateProjection} from '../../../lib/projection.ts';
 import {deliveryAddressError,normalizeDeliveryAddress} from '../../../lib/delivery-address.ts';
@@ -15,12 +16,15 @@ async function hash(s:string){return [...new Uint8Array(await crypto.subtle.dige
 async function request(path:string,init:RequestInit={}) {
  const r=await fetch(BASE+path,{...init,headers:{apikey:SECRET,Authorization:`Bearer ${SECRET}`,'Content-Type':'application/json',...init.headers}});
  const txt=await r.text(); let data; try{data=txt?JSON.parse(txt):null;}catch{data=null;}
+ if(!r.ok&&data?.code==='P0002')throw new ApiError('Os preços mudaram. Calcule a prévia novamente antes de confirmar.',409);
  if(!r.ok&&data?.code==='40001')throw new ApiError('O carrinho foi atualizado em outro acesso. Confira os itens antes de continuar.',409);
  if(!r.ok) throw new ApiError(r.status===409?'Este registro já existe.':r.status===400?'Confira os dados informados.':'Não foi possível concluir. Tente novamente.',r.status===401?401:400);
  return data;
 }
 const db=(table:string,query='',method='GET',body?:unknown)=>request(`/rest/v1/${table}${query?`?${query}`:''}`,{method,headers:{Prefer:'return=representation'},...(body!==undefined?{body:JSON.stringify(body)}:{})});
 const rpc=(name:string,args:unknown)=>request('/rest/v1/rpc/'+name,{method:'POST',body:JSON.stringify(args)});
+// PostgREST can serialize a composite return as a one-row array.
+const rpcRecord=async(name:string,args:unknown)=>{const result=await rpc(name,args);return Array.isArray(result)?result[0]:result;};
 async function admin(req:Request){
  const token=req.headers.get('authorization'); if(!token?.startsWith('Bearer '))throw new ApiError('Entre na sua conta para continuar.',401);
  const r=await fetch(BASE+'/auth/v1/user',{headers:{apikey:SECRET,Authorization:token}}); if(!r.ok)throw new ApiError('Sua sessão expirou. Entre novamente.',401);
@@ -62,8 +66,8 @@ async function rate(req:Request,b:any,action:string){
  }
 }
 async function catalog(){
- const [lines,products,s,flavors,upsell_rules]=await Promise.all([db('yp_lines','active=eq.true&order=position,name'),db('yp_products','deleted_at=is.null&active=eq.true&order=position,name'),db('yp_settings','id=eq.1'),db('yp_flavors','deleted_at=is.null&active=eq.true&order=position,name&limit=10000'),db('yp_upsell_rules','active=eq.true&order=priority,id')]);
- const ids=new Set(lines.map((l:any)=>l.id));return {lines,upsell_rules,products:products.filter((p:any)=>ids.has(p.line_id)).map((p:any)=>({...p,bundle_units:p.bundle_enabled===false?null:BUNDLE_UNITS,bundle_price:p.bundle_enabled===false?null:bundlePrice(p.package_price)})),flavors:flavors.filter((f:any)=>products.some((p:any)=>p.id===f.product_id&&ids.has(p.line_id))).map((f:any)=>({...f,bundle_price:products.find((p:any)=>p.id===f.product_id)?.bundle_enabled===false?null:bundlePrice(f.package_price)})),settings:s[0]};
+ const [lines,products,s,flavors,upsell_rules,highlights]=await Promise.all([db('yp_lines','active=eq.true&order=position,name'),db('yp_products','deleted_at=is.null&active=eq.true&order=position,name'),db('yp_settings','id=eq.1'),db('yp_flavors','deleted_at=is.null&active=eq.true&order=position,name&limit=10000'),db('yp_upsell_rules','active=eq.true&order=priority,id'),db('yp_catalog_highlights',`active=eq.true&starts_at=lte.${encodeURIComponent(new Date().toISOString())}&expires_at=gt.${encodeURIComponent(new Date().toISOString())}&order=starts_at.desc`)]);
+ const ids=new Set(lines.map((l:any)=>l.id));return {lines,upsell_rules,highlights:highlights.filter((h:any)=>products.some((p:any)=>p.id===h.product_id&&ids.has(p.line_id))),products:products.filter((p:any)=>ids.has(p.line_id)).map((p:any)=>({...p,bundle_units:p.bundle_enabled===false?null:BUNDLE_UNITS,bundle_price:p.bundle_enabled===false?null:bundlePrice(p.package_price)})),flavors:flavors.filter((f:any)=>products.some((p:any)=>p.id===f.product_id&&ids.has(p.line_id))).map((f:any)=>({...f,bundle_price:products.find((p:any)=>p.id===f.product_id)?.bundle_enabled===false?null:bundlePrice(f.package_price)})),settings:s[0]};
 }
 function upsellRuleInput(r:any,cat:any){
  if(r.id&&!uuid(r.id)||!uuid(r.trigger_product_id)||!uuid(r.product_id)||r.trigger_flavor_id&&!uuid(r.trigger_flavor_id)||r.flavor_id&&!uuid(r.flavor_id)||!(r.price===null||integer(r.price,1))||!integer(r.priority,0,999))throw new ApiError('Confira a regra de sugestão.');
@@ -247,6 +251,33 @@ Deno.serve(async(req:Request)=>{
   }
   const who=await admin(req);
   if(who.must_change_password&&!['admin_data','change_password'].includes(action))throw new ApiError('Defina sua nova senha para continuar.',403);
+  if(action==='admin_highlights')return json({highlights:await db('yp_catalog_highlights','order=starts_at.desc')});
+  if(action==='save_highlight'){
+   if(!uuid(b.product_id)||!integer(b.duration,1,b.unit==='months'?24:365)||!['days','months'].includes(b.unit))throw new ApiError('Selecione o produto e um período válido.');
+   return json(await rpcRecord('yp_save_highlight',{p_product:b.product_id,p_title:str(b.title,120),p_description:str(b.description,400),p_duration:b.duration,p_unit:b.unit}));
+  }
+  if(action==='stop_highlight'){
+   if(!uuid(b.id))throw new ApiError('Destaque inválido.');
+   await db('yp_catalog_highlights',`id=eq.${b.id}`,'PATCH',{active:false});return json({ok:true});
+  }
+  if(action==='price_adjustments'){
+   const page=integer(b.page,0,10000)?b.page:0;
+   const rows=await db('yp_price_adjustments',`select=id,basis_points,product_ids,scheduled_at,status,created_at,applied_at,changes,error&order=created_at.desc,id.desc&limit=21&offset=${page*20}`);
+   return json({adjustments:rows.slice(0,20),has_more:rows.length>20});
+  }
+  if(action==='preview_price_adjustment'||action==='create_price_adjustment'){
+   if(!integer(b.basis_points,1,10000)||!(b.product_ids===null||Array.isArray(b.product_ids)&&b.product_ids.length>0&&b.product_ids.length<=1000&&b.product_ids.every(uuid)))throw new ApiError('Confira o percentual e os produtos selecionados.');
+   const ids=b.product_ids===null?null:[...new Set(b.product_ids)].sort();
+   if(action==='preview_price_adjustment')return json(await rpc('yp_preview_price_adjustment',{p_ids:ids,p_bps:b.basis_points}));
+   if(!uuid(b.id)||typeof b.fingerprint!=='string'||!/^[a-f0-9]{32}$/.test(b.fingerprint))throw new ApiError('Calcule a prévia antes de confirmar.');
+   if(!(b.scheduled_at===null||typeof b.scheduled_at==='string'&&Number.isFinite(Date.parse(b.scheduled_at))))throw new ApiError('Informe uma data e horário válidos.');
+   return json(await rpcRecord('yp_create_price_adjustment',{p_id:b.id,p_bps:b.basis_points,p_ids:ids,p_scheduled_at:b.scheduled_at,p_actor:who.user_id,p_fingerprint:b.fingerprint}));
+  }
+  if(action==='cancel_price_adjustment'){
+   if(!uuid(b.id))throw new ApiError('Reajuste inválido.');
+   if(!await rpc('yp_cancel_price_adjustment',{p_id:b.id}))throw new ApiError('Este reajuste já foi processado ou cancelado. Atualize o histórico.',409);
+   return json({ok:true});
+  }
   if(action==='retention_queue'){
    if(!['reorder','carts','frequency'].includes(b.kind))throw new ApiError('Filtro inválido.');
    const result=await rpc('yp_retention_queue',{p_kind:b.kind,p_page:integer(b.page,0,100000)?b.page:0,p_search:str(b.search,100)});
@@ -301,7 +332,8 @@ Deno.serve(async(req:Request)=>{
    const img=str(p.image_url,2000);if(img&&!/^https:\/\//.test(img)&&!/^\/assets\/[a-zA-Z0-9._-]+$/.test(img))throw new ApiError('Informe uma imagem HTTPS válida.');
    const yg=p.yield_grams??null,ym=p.yield_min_grams??null;if(!((yg===null&&ym===null)||(integer(yg,1,100000)&&integer(ym,1,yg))))throw new ApiError('Confira a faixa de rendimento por pacote.');
    if(!(p.package_weight_grams==null||integer(p.package_weight_grams,1,100000)))throw new ApiError('Confira o peso.');
-   const data={...(p.bundle_enabled===undefined?{}:{bundle_enabled:p.bundle_enabled}),has_flavors:p.has_flavors===true,package_weight_grams:p.package_weight_grams??null,yield_grams:yg,yield_min_grams:ym,line_id:p.line_id,name:str(p.name),sku:str(p.sku,60).toUpperCase(),description:str(p.description,2000),image_url:img,package_label:str(p.package_label,40)||'Pacote',package_price:p.package_price,bundle_units:BUNDLE_UNITS,bundle_price:bundlePrice(p.package_price),active:p.active===true,available:p.available===true,position:integer(p.position,0,999)?p.position:0,updated_at:new Date().toISOString()};
+   let information={};try{information={...(p.preparation===undefined?{}:{preparation:preparationInput(p.preparation)}),...(p.additional_info===undefined?{}:{additional_info:informationInput(p.additional_info)})};}catch(e){throw new ApiError(e instanceof Error?e.message:'Confira as informações do produto.');}
+   const data={...information,...(p.bundle_enabled===undefined?{}:{bundle_enabled:p.bundle_enabled}),has_flavors:p.has_flavors===true,package_weight_grams:p.package_weight_grams??null,yield_grams:yg,yield_min_grams:ym,line_id:p.line_id,name:str(p.name),sku:str(p.sku,60).toUpperCase(),description:str(p.description,2000),image_url:img,package_label:str(p.package_label,40)||'Pacote',package_price:p.package_price,bundle_units:BUNDLE_UNITS,bundle_price:bundlePrice(p.package_price),active:p.active===true,available:p.available===true,position:integer(p.position,0,999)?p.position:0,updated_at:new Date().toISOString()};
    if(p.id&&!uuid(p.id))throw new ApiError('Produto inválido.');const saved=(await db('yp_products',p.id?`id=eq.${p.id}&deleted_at=is.null`:'',p.id?'PATCH':'POST',data))[0];if(!saved)throw new ApiError('Este produto foi excluído. Atualize o catálogo.',409);return json(saved);
   }
   if(action==='save_flavor'){

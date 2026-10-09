@@ -1,3 +1,4 @@
+import type {CatalogHighlight} from './catalog-management';
 import type { Catalog, Flavor, Line, Product } from './portal';
 import { getLineDetails, type LineDetailsData } from './line-details';
 
@@ -8,6 +9,7 @@ export type PublicProduct = Pick<Product,
 export type PublicFlavor = Pick<Flavor,
   'id' | 'product_id' | 'name' | 'package_weight_grams' | 'available'>;
 export type PublicCatalog = {
+  highlights?: CatalogHighlight[];
   lines: PublicLine[];
   products: PublicProduct[];
   flavors: PublicFlavor[];
@@ -50,5 +52,6 @@ export function toPublicCatalog(source: Catalog): PublicCatalog {
       package_weight_grams: flavor.package_weight_grams,
       available: flavor.available,
     }));
-  return { lines, products, flavors };
+  const highlights = (source.highlights ?? []).filter(h => products.some(p => p.id === h.product_id)).map(h => ({id: h.id, product_id: h.product_id, title: h.title, description: h.description, starts_at: h.starts_at, expires_at: h.expires_at, active: h.active}));
+  return { lines, products, flavors, highlights };
 }
