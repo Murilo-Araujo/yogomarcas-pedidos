@@ -45,3 +45,6 @@ next-env.d.ts
 
 # Supabase CLI local cache
 /supabase/.temp/
+
+# Generated from the pinned @tabler/icons package during build.
+/public/vendor/tabler/

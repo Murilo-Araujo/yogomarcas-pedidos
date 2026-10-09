@@ -10,7 +10,7 @@ function load(file) {
   const module = { exports: {} }; cache.set(filename, module);
   const code = ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText;
   vm.runInNewContext(code, { exports: module.exports, URL, require: name => {
-    if (name.endsWith('.module.css')) return {};
+    if (name.endsWith('.module.css')) return { __esModule: true, default: new Proxy({}, { get: (_, key) => String(key) }) };
     if (name.startsWith('.') || name.startsWith('@/')) {
       const base = name.startsWith('@/') ? path.resolve(__dirname, '..', name.slice(2)) : path.resolve(path.dirname(filename), name);
       return load([base, base + '.ts', base + '.tsx'].find(candidate => fs.existsSync(candidate) && fs.statSync(candidate).isFile()));
@@ -59,4 +59,62 @@ test('SSR renders real accessible links, social labels and an editable featured 
 test('custom colors keep a high contrast foreground', () => {
   assert.equal(contrastInk('#ffffff'), '#000000'); assert.equal(contrastInk('#51358b'), '#ffffff');
   assert.equal(contrastInk('#000000'), '#ffffff'); assert.equal(contrastInk('#ffff00'), '#000000');
+});
+test('profile appearance defaults preserve the image and allow explicit shape, background and title choices', () => {
+  const legacy = config();
+  const normalized = parseLinkHub(legacy);
+  assert.equal(normalized.logo_url, legacy.logo_url);
+  assert.equal(normalized.logo_shape, 'original'); assert.equal(normalized.logo_background, false); assert.equal(normalized.show_title, true);
+  const chosen = parseLinkHub(config({ logo_shape: 'circle', logo_background: true, show_title: false }));
+  assert.equal(chosen.logo_shape, 'circle'); assert.equal(chosen.logo_background, true); assert.equal(chosen.show_title, false);
+  for (const invalid of [{ logo_shape: 'triangle' }, { logo_background: 'false' }, { show_title: null }]) assert.throws(() => parseLinkHub(config(invalid)));
+});
+test('profile uses the chosen shape and background independently of the editable name', () => {
+  const shown = renderToStaticMarkup(React.createElement(LinkHub, { initialConfig: parseLinkHub(config({ title: 'Yogo Marcas', logo_shape: 'circle', logo_background: false, show_title: true })) }));
+  assert.match(shown, /data-shape="circle" data-background="false"/);
+  assert.match(shown, /<h1 class="nameVisible">Yogo Marcas<\/h1>/);
+  const hidden = renderToStaticMarkup(React.createElement(LinkHub, { initialConfig: parseLinkHub(config({ logo_shape: 'rounded', logo_background: true, show_title: false })) }));
+  assert.match(hidden, /data-shape="rounded" data-background="true"/);
+  assert.match(hidden, /<h1 class="name">Yogomarcas<\/h1>/);
+});
+
+const { TABLER_NAMES, TABLER_VERSION } = load('lib/tabler-icon-names.ts');
+const { isLinkIcon, tablerIconId, tablerIconUrl, LEGACY_ICONS } = load('lib/tabler-icons.ts');
+const { searchTablerIcons, TABLER_CATALOG } = load('lib/tabler-search.ts');
+test('every packaged Tabler icon is selectable, validates and resolves to a local SVG', () => {
+  assert.equal(TABLER_VERSION, JSON.parse(fs.readFileSync('node_modules/@tabler/icons/package.json','utf8')).version);
+  let total = 0;
+  for (const variant of ['outline', 'filled']) {
+    const packaged = fs.readdirSync(`node_modules/@tabler/icons/icons/${variant}`).filter(name => name.endsWith('.svg')).map(name => name.slice(0, -4)).sort();
+    assert.deepEqual(Array.from(TABLER_NAMES[variant]), packaged);
+    for (const name of packaged) {
+      const id = `tabler:${variant}/${name}`;
+      assert.equal(isLinkIcon(id), true);
+      assert.ok(fs.existsSync('public' + tablerIconUrl(id)));
+    }
+    total += packaged.length;
+  }
+  assert.equal(TABLER_CATALOG.length, total);
+  for (const legacy of Object.keys(LEGACY_ICONS)) assert.ok(isLinkIcon(tablerIconId(legacy)));
+  for (const value of ['tabler:outline/missing-icon-xyz', 'tabler:solid/heart', 'tabler:outline/../heart', 'tabler:outline/heart.svg', 'constructor', 'toString', null]) assert.equal(isLinkIcon(value), false);
+});
+test('icon search finds names, partial names, React names and common Portuguese words across both styles', () => {
+  assert.equal(searchTablerIcons('').length, TABLER_CATALOG.length);
+  for (const query of ['WhatsApp', 'IconBrandWhatsapp', 'brand-whats']) assert.ok(searchTablerIcons(query).some(icon => icon.id === 'tabler:outline/brand-whatsapp'));
+  assert.ok(searchTablerIcons('sorvete').some(icon => icon.name === 'ice-cream'));
+  assert.ok(searchTablerIcons('coração').some(icon => icon.name === 'heart'));
+  const filled = searchTablerIcons('heart', 'filled');
+  assert.ok(filled.length > 0);assert.ok(filled.every(icon => icon.variant === 'filled'));
+  assert.equal(searchTablerIcons('no-such-icon-xyz').length, 0);
+});
+test('public cards and social links render selected Tabler SVGs, including legacy brand icons', () => {
+  const html = renderToStaticMarkup(React.createElement(LinkHub, { initialConfig: parseLinkHub(config({ links: [
+    link({ icon: 'tabler:filled/heart', image_url: '', style: 'card' }),
+    link({ icon: 'whatsapp', title: 'WhatsApp', style: 'social' }),
+    link({ icon: 'instagram', title: 'Instagram', style: 'social' }),
+  ] })) }));
+  assert.match(html, /filled\/heart.svg/);
+  assert.match(html, /outline\/brand-whatsapp.svg/);
+  assert.match(html, /outline\/brand-instagram.svg/);
+  assert.match(html, /background-color:currentColor/);
 });

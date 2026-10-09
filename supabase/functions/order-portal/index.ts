@@ -267,11 +267,19 @@ Deno.serve(async(req:Request)=>{
   if(action==='admin_link_hub'){
    const [pages,stats]=await Promise.all([db('yp_link_hub','id=eq.1&select=config,version,updated_at'),rpc('yp_link_hub_stats',{})]);
    if(!pages[0])throw new ApiError('A página ainda não foi configurada.',404);
-   return json({page:pages[0],stats});
+   return json({page:{...pages[0],config:parseLinkHub(pages[0].config)},stats});
   }
   if(action==='save_link_hub'){
    if(!integer(b.version,1,2147483646))throw new ApiError('Recarregue a página antes de salvar.');
    let config;try{config=parseLinkHub(b.config);}catch(e){throw new ApiError(e instanceof Error?e.message:'Confira os dados da página.');}
+   // An editor left open before these options existed must not reset them.
+   const profileFields=['logo_shape','logo_background','show_title'] as const;
+   if(profileFields.some(field=>b.config[field]===undefined)){
+    const previous=(await db('yp_link_hub',`id=eq.1&version=eq.${b.version}&select=config`))[0];
+    if(!previous)throw new ApiError('Outra pessoa atualizou esta página. Recarregue antes de aplicar suas alterações.',409);
+    const profile=parseLinkHub(previous.config);
+    config=parseLinkHub({...b.config,...Object.fromEntries(profileFields.filter(field=>b.config[field]===undefined).map(field=>[field,profile[field]]))});
+   }
    const pages=await db('yp_link_hub',`id=eq.1&version=eq.${b.version}`,'PATCH',{config,version:b.version+1,updated_at:new Date().toISOString(),updated_by:who.user_id});
    if(!pages.length)throw new ApiError('Outra pessoa atualizou esta página. Recarregue antes de aplicar suas alterações.',409);
    const {version,updated_at}=pages[0];return json({config,version,updated_at});

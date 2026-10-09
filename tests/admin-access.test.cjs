@@ -4,7 +4,12 @@ const {webcrypto:crypto,randomUUID}=require('node:crypto');
 const transpile=s=>ts.transpileModule(s,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;
 const retention={exports:{}};vm.runInNewContext(transpile(fs.readFileSync('lib/retention.ts','utf8')),{exports:retention.exports});
 const management={exports:{}};vm.runInNewContext(transpile(fs.readFileSync('lib/catalog-management.ts','utf8')),{exports:management.exports});
-const linkHub={exports:{}};vm.runInNewContext(transpile(fs.readFileSync('lib/link-hub.ts','utf8')),{exports:linkHub.exports,URL});
+function loadPure(file){
+ const path=require('node:path'),module={exports:{}};
+ vm.runInNewContext(transpile(fs.readFileSync(file,'utf8')),{exports:module.exports,URL,require:name=>loadPure(path.resolve(path.dirname(file),name))});
+ return module.exports;
+}
+const linkHub={exports:loadPure('lib/link-hub.ts')};
 const {config:hubConfig,link:hubLink}=require('./fixtures/link-hub.cjs');
 const sha=async s=>Buffer.from(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s))).toString('hex');
 async function fixture(){
@@ -80,4 +85,36 @@ test('public link route does not leak hidden destinations, admin identity or met
  const f=await fixture();f.catalogDb.yp_link_hub[0].config.links.push(hubLink({enabled:false,title:'Secret',url:'https://example.com/hidden'}));
  f.catalogDb.yp_link_hub[0].updated_by='ADMIN';
  const page=await f.readPage();assert.equal(page.config.links.length,1);assert.doesNotMatch(JSON.stringify(page),/Secret|hidden|ADMIN|updated_by|version|stats/);
+});
+test('profile appearance persists, reaches the public page, and survives edits from an older admin tab',async()=>{
+ const f=await fixture(),token=f.session(f.staff);
+ const initial=await f.call({action:'admin_link_hub'},token);
+ assert.equal(initial.page.config.logo_background,false);assert.equal(initial.page.config.show_title,true);
+ const chosen=hubConfig({logo_shape:'circle',logo_background:true,show_title:false});
+ const saved=await f.call({action:'save_link_hub',version:1,config:chosen},token);
+ assert.equal(saved.config.logo_shape,'circle');
+ const page=await f.readPage();assert.equal(page.config.logo_background,true);assert.equal(page.config.show_title,false);
+ const legacy={...saved.config,title:'Outro nome'};delete legacy.logo_shape;delete legacy.logo_background;delete legacy.show_title;
+ const updated=await f.call({action:'save_link_hub',version:2,config:legacy},token);
+ assert.equal(updated.config.logo_shape,'circle');assert.equal(updated.config.logo_background,true);assert.equal(updated.config.show_title,false);
+ await f.call({action:'save_link_hub',version:3,config:{...updated.config,show_title:'true'}},token,400);
+ const final=await f.call({action:'save_link_hub',version:3,config:{...updated.config,logo_background:false,show_title:true}},token);
+ assert.equal(final.config.logo_background,false);assert.equal(final.config.show_title,true);
+ assert.equal(final.config.title,'Outro nome');
+ await f.call({action:'save_link_hub',version:3,config:legacy},token,409);
+});
+
+test('Tabler selections persist through admin saving and public reading; unknown icons cannot be saved',async()=>{
+ const f=await fixture(),token=f.session(f.staff);
+ for(const icon of ['tabler:outline/ice-cream','tabler:filled/heart','tabler:outline/brand-whatsapp']){
+  const row=f.catalogDb.yp_link_hub[0];
+  const saved=await f.call({action:'save_link_hub',version:row.version,config:hubConfig({links:[hubLink({icon})]})},token);
+  assert.equal(saved.config.links[0].icon,icon);
+  const publicPage=await f.readPage();assert.equal(publicPage.config.links[0].icon,icon);
+ }
+ const row=f.catalogDb.yp_link_hub[0],version=row.version;
+ for(const icon of ['tabler:filled/does-not-exist','tabler:outline/../../secret','<svg onload=alert(1)>']){
+  await f.call({action:'save_link_hub',version,config:hubConfig({links:[hubLink({icon})]})},token,400);
+ }
+ assert.equal(row.version,version);assert.equal(row.config.links[0].icon,'tabler:outline/brand-whatsapp');
 });

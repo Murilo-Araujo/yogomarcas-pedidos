@@ -14,12 +14,18 @@
     "lint": "bash scripts/sites-env.sh -- eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate",
     "build:vercel": "next build",
-    "typecheck": "tsc --noEmit -p tsconfig.app.json"
+    "typecheck": "tsc --noEmit -p tsconfig.app.json",
+    "icons:prepare": "node scripts/prepare-tabler-icons.mjs",
+    "icons:update": "node scripts/prepare-tabler-icons.mjs --update-catalog",
+    "predev": "npm run icons:prepare",
+    "prebuild": "npm run icons:prepare",
+    "prebuild:vercel": "npm run icons:prepare"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
     "@hookform/resolvers": "^5.7.1",
     "@shadcn/react": "^0.3.0",
+    "@tabler/icons": "3.49.0",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "cmdk": "^1.1.1",
