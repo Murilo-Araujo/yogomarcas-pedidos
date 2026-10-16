@@ -7,6 +7,7 @@ import { ArrowUp, BookOpen, ChevronDown, Info, Package, Search, X } from 'lucide
 import type { PublicCatalog, PublicFlavor, PublicProduct } from '@/lib/public-catalog';
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { LineDetailsContent } from './line-details';
+import FlavorObservation from './flavor-observation';
 import styles from './public-catalog.module.css';
 
 const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
@@ -62,6 +63,7 @@ function ProductSection({ product, flavors, totalFlavors, priority }: {
       {flavors.length ? <ul className={styles.flavors} aria-label={`Sabores de ${product.name}`}>
         {flavors.map(flavor => <li key={flavor.id}>
           <span className={styles.flavorName}>{flavor.name}</span>
+          <FlavorObservation text={flavor.observation}/>
           {(!product.available || !flavor.available) && <small className={styles.flavorUnavailable}>Temporariamente indisponível</small>}
         </li>)}
       </ul> : <p className={styles.noFlavors}>Os sabores desta linha serão disponibilizados em breve.</p>}

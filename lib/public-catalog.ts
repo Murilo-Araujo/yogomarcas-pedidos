@@ -7,7 +7,7 @@ export type PublicProduct = Pick<Product,
   'id' | 'line_id' | 'name' | 'description' | 'image_url' | 'package_label' |
   'has_flavors' | 'available'> & { details: LineDetailsData };
 export type PublicFlavor = Pick<Flavor,
-  'id' | 'product_id' | 'name' | 'available'>;
+  'id' | 'product_id' | 'name' | 'available' | 'observation'>;
 export type PublicCatalog = {
   highlights?: CatalogHighlight[];
   lines: PublicLine[];
@@ -49,6 +49,7 @@ export function toPublicCatalog(source: Catalog): PublicCatalog {
       product_id: flavor.product_id,
       name: flavor.name,
       available: flavor.available,
+      ...(flavor.observation?.trim()?{observation:flavor.observation.trim()}:{}),
     }));
   const highlights = (source.highlights ?? []).filter(h => products.some(p => p.id === h.product_id)).map(h => ({id: h.id, product_id: h.product_id, title: h.title, description: h.description, starts_at: h.starts_at, expires_at: h.expires_at, active: h.active}));
   return { lines, products, flavors, highlights };
