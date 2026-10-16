@@ -4,6 +4,7 @@ import {useState} from 'react';
 import {Package,Plus,Sparkles} from 'lucide-react';
 import {Flavor,Product,money} from '@/lib/portal';
 import {DualQuantity} from './controls';
+import FlavorObservation from './flavor-observation';
 
 export function SuggestionPhoto({product}:{product?:Product}){
  const [failedUrl,setFailedUrl]=useState<string|null>(null);
@@ -28,6 +29,7 @@ export default function CartSuggestion({title,description,product,flavor,price,o
   {description?.trim()&&<p className="suggestion-description">{description}</p>}
   {product?<>
    <div className="suggestion-product"><SuggestionPhoto product={product}/><div className="suggestion-product-info"><strong>{product.name}</strong>{flavor&&<span>{flavor.name}</span>}<small>{product.package_label}</small></div></div>
+   <FlavorObservation text={flavor?.observation}/>
    {savings>0&&<div className="suggestion-discount"><del>{money(regularPrice!)} por pacote</del><span className="suggestion-saving">Economize {money(savings)} por pacote</span></div>}
    <DualQuantity name={`${product.name}${flavor?` · ${flavor.name}`:''} na sugestão`} packages={packages} bundles={selectedBundles} allowBundle={allowBundle} packagePrice={price} disabled={disabled||preview||!priced} onChange={(mode,value)=>mode==='bundle'?setBundles(value):setPackages(value)}/>
    <div className="suggestion-selection-total" aria-live="polite"><div><span>Total da sugestão</span><small>{units?`${units} ${units===1?'pacote':'pacotes'} no total`:'Escolha uma quantidade'}</small></div><strong>{money(total)}</strong></div>

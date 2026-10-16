@@ -376,7 +376,9 @@ Deno.serve(async(req:Request)=>{
    const p=(await db('yp_products',`id=eq.${f.product_id}&deleted_at=is.null`))[0];if(!p)throw new ApiError('Esta linha foi excluída. Atualize o catálogo.',409);if(!p.has_flavors)throw new ApiError('Ative sabores no cadastro desta linha.');
    if(!/^[A-Za-z0-9][A-Za-z0-9._/-]{0,59}$/.test(str(f.sku,61)))throw new ApiError('Informe o código interno do sabor, com até 60 caracteres.');
    if(f.id&&!(await db('yp_flavors',`id=eq.${f.id}&product_id=eq.${f.product_id}&deleted_at=is.null`)).length)throw new ApiError('Este sabor foi excluído ou não pertence a esta linha. Atualize o catálogo.',409);
-   const value={sku:str(f.sku,60).toUpperCase(),product_id:f.product_id,name:str(f.name,120),package_price:f.package_price,bundle_price:bundlePrice(f.package_price),package_weight_grams:f.package_weight_grams,active:f.active===true,available:f.available===true,position:integer(f.position,0,999)?f.position:0,updated_at:new Date().toISOString()};
+   if(f.observation!==undefined&&f.observation!==null&&(typeof f.observation!=='string'||f.observation.length>1000||f.observation.includes(String.fromCharCode(0))))throw new ApiError('Use até 1.000 caracteres na observação do sabor.');
+   // Omitted fields from older admin screens must not erase existing notes.
+   const value={...(f.observation===undefined?{}:{observation:str(f.observation,1000)}),sku:str(f.sku,60).toUpperCase(),product_id:f.product_id,name:str(f.name,120),package_price:f.package_price,bundle_price:bundlePrice(f.package_price),package_weight_grams:f.package_weight_grams,active:f.active===true,available:f.available===true,position:integer(f.position,0,999)?f.position:0,updated_at:new Date().toISOString()};
    const saved=(await db('yp_flavors',f.id?`id=eq.${f.id}&deleted_at=is.null`:'',f.id?'PATCH':'POST',value))[0];if(!saved)throw new ApiError('Este sabor foi excluído. Atualize o catálogo.',409);return json(saved);
   }
   if(action==='save_line'){

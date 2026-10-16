@@ -3,7 +3,7 @@ import {BUNDLE_UNITS,bundlePrice,cartOffers,matchesOffer} from './retention';
 import {sessionStore} from './browser-storage';
 import { API_URL, SUPABASE_KEY, SUPABASE_URL } from './config';
 export type Line={id:string;name:string;description:string;position:number;active:boolean};
-export type Flavor={sku:string;id:string;product_id:string;name:string;package_weight_grams:number|null;package_price:number|null;bundle_price:number|null;active:boolean;available:boolean;position:number};
+export type Flavor={observation?:string|null;sku:string;id:string;product_id:string;name:string;package_weight_grams:number|null;package_price:number|null;bundle_price:number|null;active:boolean;available:boolean;position:number};
 export type Product={preparation?:Preparation|null;additional_info?:ProductInformation[];bundle_enabled?:boolean;has_flavors?:boolean;package_weight_grams?:number|null;id:string;line_id:string;name:string;sku:string;description:string;image_url:string;package_label:string;package_price:number|null;bundle_units:number|null;bundle_price:number|null;active:boolean;available:boolean;position:number;yield_grams:number|null;yield_min_grams:number|null};
 export type Settings={contextual_upsell_enabled?:boolean;whatsapp:string;minimum_order:number;notice:string;ordering_enabled:boolean;upsell_enabled:boolean;upsell_product_id:string|null;upsell_flavor_id?:string|null;upsell_title:string;upsell_description:string;upsell_price:number|null};
 export type Catalog={highlights?:CatalogHighlight[];upsell_rules?:import('./retention').UpsellRule[];lines:Line[];products:Product[];flavors:Flavor[];settings:Settings};
