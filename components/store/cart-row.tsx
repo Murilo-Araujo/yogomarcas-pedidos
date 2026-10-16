@@ -5,6 +5,7 @@ import {Check,Pencil,Sparkles,Trash2} from 'lucide-react';
 import {Collapsible,CollapsibleContent,CollapsibleTrigger} from '@/components/ui/collapsible';
 import {CartGroup,CartItem,itemName,money} from '@/lib/portal';
 import {DualQuantity} from './controls';
+import FlavorObservation from './flavor-observation';
 
 export default function CartRow({group:g,onChange,onRemove}:{group:CartGroup;onChange:(mode:CartItem['mode'],quantity:number)=>void;onRemove:()=>void}){
  const [editing,setEditing]=useState(false);
@@ -20,6 +21,7 @@ export default function CartRow({group:g,onChange,onRemove}:{group:CartGroup;onC
     <strong className="order-review-price">{money(g.total)}</strong>
     <CollapsibleTrigger asChild><button ref={editButton} type="button" className="order-review-edit" aria-label={`${editing?'Fechar edição':'Editar quantidades'} de ${name}`} title={editing?'Fechar edição':'Editar quantidades'}><Pencil size={17} aria-hidden="true"/></button></CollapsibleTrigger>
    </div>
+   <FlavorObservation text={g.item.flavor?.observation}/>
    <CollapsibleContent className="order-product order-review-editor">
     <div className="order-review-editor-heading"><strong>Ajuste as quantidades</strong></div>
     {g.item.upsell&&<span className="order-product-offer"><Sparkles size={13} aria-hidden="true"/>Sugestão adicionada</span>}
