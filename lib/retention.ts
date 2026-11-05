@@ -3,20 +3,33 @@ import type {CartItem, Catalog, OrderItem} from './portal';
 export const BUNDLE_UNITS = 5;
 export const bundlePrice = (price:number|null|undefined) => price == null ? null : price * BUNDLE_UNITS;
 
+type OrderItemLabelInput = {internal_code?:string|null;sku?:string|null;name?:string|null;product_name?:string|null;flavor_name?:string|null};
+
+/** Include the internal code AND saved product/flavor names, including old orders. */
+function orderItemLabel(item:OrderItemLabelInput):string {
+ const text=(value:string|null|undefined)=>typeof value==='string'?value.trim():'';
+ const normalized=(value:string)=>value.toLocaleLowerCase('pt-BR');
+ const code=text(item.internal_code)||text(item.sku);
+ let name=text(item.product_name)||text(item.name);
+ const flavor=text(item.flavor_name);
+ if(flavor&&normalized(name)!==normalized(flavor)&&!normalized(name).endsWith(` · ${normalized(flavor)}`))name=name?`${name} · ${flavor}`:flavor;
+ return code&&name&&normalized(code)!==normalized(name)?`${code} | ${name}`:name||code||'Produto';
+}
+
 /** Use immutable order snapshots, never today's catalogue, for quotations. */
 export function orderMessage(o:any){
  const money=(n:number)=>(n/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
- const groups=new Map<string,{code:string;units:number;total:number}>();
+ const groups=new Map<string,{label:string;units:number;total:number}>();
  for(const i of o.items){
   const key=`${i.product_id}:${i.flavor_id||''}`;
-  const code=i.internal_code||((i.flavor_id&&i.flavor_name)?`${i.sku} · ${i.flavor_name}`:i.sku)||i.name;
-  const group=groups.get(key)||{code,units:0,total:0};
+  const label=orderItemLabel(i);
+  const group=groups.get(key)||{label,units:0,total:0};
   group.units+=i.units??i.quantity*(i.mode==='bundle'?i.bundle_units:1);
   group.total+=i.line_total;groups.set(key,group);
  }
  const address=o.delivery_address;
  const delivery=address?.street?['','Endereço de entrega:',`${address.street}, ${address.number}`,`Bairro: ${address.neighborhood}`,address.complement?`Complemento: ${address.complement}`:null,`Cidade: ${o.city}/${o.state}`,`CEP: ${address.postal_code}`,address.reference?`Referência: ${address.reference}`:null].filter(line=>line!==null):[`Cidade: ${o.city}/${o.state}`];
- return [`Olá! Gostaria de fazer o pedido ${o.public_number}.`,'',`Empresa: ${o.company}`,`Responsável: ${o.customer_name}`,`WhatsApp: ${o.phone}`,...delivery,o.customer_code?`Código do cliente: ${o.customer_code}`:'','',...[...groups.values()].map(i=>`${i.code} — ${i.units} ${i.units===1?'pacote':'pacotes'} — ${money(i.total)}`),'',`Subtotal dos produtos: ${money(o.total)}`,o.notes?`Observações: ${o.notes}`:'','Frete, prazo, disponibilidade e pagamento a confirmar.'].join('\n');
+ return [`Olá! Gostaria de fazer o pedido ${o.public_number}.`,'',`Empresa: ${o.company}`,`Responsável: ${o.customer_name}`,`WhatsApp: ${o.phone}`,...delivery,o.customer_code?`Código do cliente: ${o.customer_code}`:'','',...[...groups.values()].map(i=>`${i.label} | ${i.units} ${i.units===1?'pacote':'pacotes'} | ${money(i.total)}`),'',`Subtotal dos produtos: ${money(o.total)}`,o.notes?`Observações: ${o.notes}`:'','Frete, prazo, disponibilidade e pagamento a confirmar.'].join('\n');
 }
 
 export type UpsellRule = {id:string;trigger_product_id:string;trigger_flavor_id?:string|null;product_id:string;flavor_id:string|null;title:string;description:string;price:number|null;priority:number;active:boolean};
