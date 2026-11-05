@@ -91,7 +91,7 @@ test('allowlist excludes weights, SKUs, settings, promotions and other-line pric
   assert.deepEqual(Object.keys(catalog), ['groups']);
   for (const group of catalog.groups) {
     assert.deepEqual(Object.keys(group), ['id', 'name', 'hasFlavors', 'items']);
-    for (const item of group.items) assert.deepEqual(Object.keys(item), ['id', 'name', 'price', 'available']);
+    for (const item of group.items) assert.deepEqual(Object.keys(item), ['id', 'name', 'price', 'available', 'preparationLabel']);
   }
   assert.doesNotMatch(JSON.stringify(catalog), /PRIVATE|SECRET|INTERNAL|bundle_price|package_weight|6590|7195/);
 });
