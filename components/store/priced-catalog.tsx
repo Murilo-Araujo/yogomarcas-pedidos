@@ -35,7 +35,7 @@ export default function PricedCatalogView({ catalog, catalogKey }: { catalog: Pr
             <caption className="sr-only">{group.name}: {group.hasFlavors ? 'sabores' : 'produtos'} e preços por pacote</caption>
             <thead><tr><th scope="col">{group.hasFlavors ? 'Sabor' : 'Produto'}</th><th scope="col">Preço por pacote</th></tr></thead>
             <tbody>{group.items.map(item => <tr key={item.id}>
-              <th scope="row"><span>{item.name}</span>{!item.available && <small className={styles.unavailable}>Temporariamente indisponível</small>}</th>
+              <th scope="row"><span>{item.name}</span>{item.preparationLabel && <small className={styles.preparation}>{item.preparationLabel}</small>}{!item.available && <small className={styles.unavailable}>Temporariamente indisponível</small>}</th>
               <td className={item.price === null ? styles.onRequest : undefined}>{formatCatalogPrice(item.price)}</td>
             </tr>)}</tbody>
           </table>
