@@ -14,6 +14,19 @@ export type PricedCatalog = { groups: PricedCatalogGroup[] };
 
 const byPosition = (a: { position: number; name: string }, b: { position: number; name: string }) =>
   a.position - b.position || a.name.localeCompare(b.name, 'pt-BR');
+// Neutral bases first, then natural options in their configured order.
+// All remaining flavors use Portuguese alphabetical order, not admin position.
+function flavorPriority(name: string): number {
+  const normalized = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLocaleLowerCase('pt-BR');
+  if (/\bneutr[oa]\b|\bsem\s+sabor\b|\bs\s*\/\s*sabor\b/.test(normalized)) return 0;
+  return /^natural\b/.test(normalized) ? 1 : 2;
+}
+const byFlavorName = (a: { position: number; name: string }, b: { position: number; name: string }) => {
+  const priority = flavorPriority(a.name);
+  const difference = priority - flavorPriority(b.name);
+  return difference || (priority < 2 ? byPosition(a, b)
+    : a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base', numeric: true }) || byPosition(a, b));
+};
 const validPrice = (price: number | null | undefined): number | null =>
   typeof price === 'number' && Number.isSafeInteger(price) && price > 0 ? price : null;
 
@@ -32,7 +45,7 @@ export function toPricedCatalog(source: Catalog, key: PricedCatalogKey): PricedC
     .map(product => {
       const hasFlavors = !!product.has_flavors;
       const items: PricedCatalogItem[] = hasFlavors
-        ? source.flavors.filter(flavor => flavor.active && flavor.product_id === product.id).sort(byPosition).map(flavor => ({
+        ? source.flavors.filter(flavor => flavor.active && flavor.product_id === product.id).sort(byFlavorName).map(flavor => ({
             id: flavor.id,
             name: flavor.name,
             price: validPrice(flavor.package_price),
