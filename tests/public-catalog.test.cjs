@@ -77,9 +77,16 @@ test('unavailable active flavors stay in the portfolio with their availability',
   assert.match(html, /Temporariamente indisponível/);
 });
 
-test('anonymous initial render includes flavors without prices or ordering/account links', () => {
-  const html = renderToStaticMarkup(React.createElement(PublicCatalogView, {catalog: toPublicCatalog(fixture())}));
+test('anonymous initial render includes flavors without preparation notices, prices or ordering/account links', () => {
+  const source = fixture();
+  const note = 'Utilize 3 litros de água por pacote.';
+  source.flavors[0].observation = note;
+  const catalog = toPublicCatalog(source);
+  assert.equal(source.flavors[0].observation, note);
+  assert.equal(Object.hasOwn(catalog.flavors[0], 'observation'), false);
+  const html = renderToStaticMarkup(React.createElement(PublicCatalogView, {catalog}));
   assert.match(html, /CHOCOLATE/);
+  assert.doesNotMatch(html, /Observação do sabor|Utilize 3 litros de água por pacote/);
   assert.match(html, /Buscar linha ou sabor/);
   assert.match(html, /Sobre esta linha/);
   assert.match(html, /Ver sabores/);

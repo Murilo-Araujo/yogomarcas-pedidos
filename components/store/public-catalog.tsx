@@ -4,13 +4,11 @@ import CatalogHighlights from './catalog-highlights';
 import { useState } from 'react';
 import Image from 'next/image';
 import { ArrowUp, BookOpen, ChevronDown, Info, Package, Search, X } from 'lucide-react';
+import { normalizeSearch } from '@/lib/portal';
 import type { PublicCatalog, PublicFlavor, PublicProduct } from '@/lib/public-catalog';
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { LineDetailsContent } from './line-details';
-import FlavorObservation from './flavor-observation';
 import styles from './public-catalog.module.css';
-
-const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
 
 function ProductPhoto({ product, priority }: { product: PublicProduct; priority: boolean }) {
   const [failed, setFailed] = useState(false);
@@ -63,7 +61,6 @@ function ProductSection({ product, flavors, totalFlavors, priority }: {
       {flavors.length ? <ul className={styles.flavors} aria-label={`Sabores de ${product.name}`}>
         {flavors.map(flavor => <li key={flavor.id}>
           <span className={styles.flavorName}>{flavor.name}</span>
-          <FlavorObservation text={flavor.observation}/>
           {(!product.available || !flavor.available) && <small className={styles.flavorUnavailable}>Temporariamente indisponível</small>}
         </li>)}
       </ul> : <p className={styles.noFlavors}>Os sabores desta linha serão disponibilizados em breve.</p>}
@@ -75,13 +72,13 @@ function ProductSection({ product, flavors, totalFlavors, priority }: {
 export default function PublicCatalogView({ catalog }: { catalog: PublicCatalog | null }) {
   const [lineId, setLineId] = useState('all');
   const [query, setQuery] = useState('');
-  const term = normalize(query.trim());
+  const term = normalizeSearch(query.trim());
   const groups = (catalog?.lines ?? []).filter(line => lineId === 'all' || line.id === lineId).map(line => {
-    const lineMatches = normalize(line.name).includes(term);
+    const lineMatches = normalizeSearch(line.name).includes(term);
     const products = (catalog?.products ?? []).filter(product => product.line_id === line.id).flatMap(product => {
       const allFlavors = (catalog?.flavors ?? []).filter(flavor => flavor.product_id === product.id);
-      const productMatches = lineMatches || normalize(product.name).includes(term);
-      const flavors = productMatches ? allFlavors : allFlavors.filter(flavor => normalize(flavor.name).includes(term));
+      const productMatches = lineMatches || normalizeSearch(product.name).includes(term);
+      const flavors = productMatches ? allFlavors : allFlavors.filter(flavor => normalizeSearch(flavor.name).includes(term));
       return productMatches || flavors.length ? [{ product, flavors, totalFlavors: allFlavors.length }] : [];
     });
     return { line, products };

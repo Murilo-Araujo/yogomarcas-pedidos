@@ -8,7 +8,14 @@ test('two flavors stay separate and use each flavor price, never parent fallback
 test('missing legacy flavor and mismatched flavor excluded instead of guessed',()=>{const c=catalog();assert.equal(resolveCart([{product_id:'line',mode:'package',quantity:1}],c).length,0);c.flavors[0].product_id='other';assert.equal(resolveCart([{product_id:'line',flavor_id:'a',mode:'package',quantity:1}],c).length,0);});
 test('bundle always derives five packages from variant price',()=>{const c=catalog(),r=resolveCart([{product_id:'line',flavor_id:'a',mode:'bundle',quantity:2},{product_id:'line',flavor_id:'b',mode:'bundle',quantity:1}],c);assert.equal(r[0].unit_price,29180);assert.equal(r[0].units,10);assert.equal(r[1].unit_price,31300);});
 test('stale upsell with wrong flavor, quantity or excessive price is invalid',()=>{const c=catalog(),regular={product_id:'line',flavor_id:'b',mode:'package',quantity:1},i={product_id:'line',flavor_id:'a',mode:'package',quantity:1,upsell:true};Object.assign(c.settings,{upsell_enabled:true,upsell_product_id:'line',upsell_flavor_id:'b',upsell_price:5000});assert.equal(resolveCart([i,regular],c)[0].unit_price,0);c.settings.upsell_flavor_id='a';assert.equal(resolveCart([i,regular],c)[0].unit_price,5000);assert.equal(resolveCart([{...i,quantity:0},regular],c)[0].unit_price,0);c.settings.upsell_price=9000;assert.equal(resolveCart([i,regular],c)[0].unit_price,0);});
-test('flavor search ignores accents',()=>{assert.equal(normalizeSearch('AÇAÍ'),normalizeSearch('acai'));});
+test('flavor search matches accents, abbreviations and spellings from the previous catalog', () => {
+ for (const [query, name] of [
+  ['acai', 'AÇAÍ'], ['abacaxi c/coco', 'ABACAXI COM COCO'],
+  ['base s/ sabor', 'BASE SEM SABOR'], ['limao galego', 'LIMÃO-GALEGO'],
+  ['mamão papaya', 'MAMÃO-PAPAIA'], ['4 leites', 'QUATRO LEITES'],
+  ['Mexirica', 'MEXERICA'], ['passas ao rhum', 'PASSAS AO RUM'],
+ ]) assert.equal(normalizeSearch(query), normalizeSearch(name));
+});
 
 test('disabled bundles apply to every flavor while packages retain their prices',()=>{const c=catalog();c.products[0].bundle_enabled=false;for(const f of c.flavors){const item={product_id:'line',flavor_id:f.id,quantity:2};assert.equal(resolveCart([{...item,mode:'bundle'}],c).length,0);const p=resolveCart([{...item,mode:'package'}],c)[0];assert.equal(p.unit_price,f.package_price);assert.equal(p.product.bundle_units,null);assert.equal(p.product.bundle_price,null);assert.equal(p.units,2);}});
 test('explicit bundle conversion merges equivalent packages and preserves other flavors',()=>{const item={product_id:'line',flavor_id:'a',mode:'bundle',quantity:2},other={product_id:'line',flavor_id:'b',mode:'package',quantity:7};const cart=[item,{...item,mode:'package',quantity:3},other],result=mod.exports.convertBundleToPackages(cart,item);assert.equal(result.length,2);assert.equal(result.find(i=>i.flavor_id==='a').mode,'package');assert.equal(result.find(i=>i.flavor_id==='a').quantity,13);assert.equal(result.find(i=>i.flavor_id==='b').quantity,7);assert.equal(cart[0].mode,'bundle');assert.equal(cart[1].quantity,3);});

@@ -19,7 +19,13 @@ export const STATES=['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS'
 export const STATUS:Record<string,string>={prepared:'Preparado para WhatsApp',contacted:'Em atendimento',confirmed:'Confirmado',fulfilled:'Concluído',cancelled:'Cancelado'};
 export const cartKey=(i:Pick<CartItem,'product_id'|'flavor_id'|'mode'>)=>`${i.product_id}:${i.flavor_id||''}:${i.mode}`;
 export const itemName=(i:ResolvedItem)=>i.product.name+(i.flavor?` · ${i.flavor.name}`:'');
-export const normalizeSearch=(s:string)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase();
+export function normalizeSearch(value: string): string {
+ return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR')
+  .replace(/\bc\/\s*/g, 'com ').replace(/\bs\/\s*/g, 'sem ')
+  .replace(/\b4\s+leites\b/g, 'quatro leites').replace(/\bmexirica\b/g, 'mexerica')
+  .replace(/\brhum\b/g, 'rum').replace(/\bpapaya\b/g, 'papaia')
+  .replace(/[\s-]+/g, ' ').trim();
+}
 export function variantProduct(p:Product,f?:Flavor):Product{const price=f?f.package_price:p.package_price,allowBundle=p.bundle_enabled!==false;return {...p,bundle_enabled:allowBundle,bundle_units:allowBundle?BUNDLE_UNITS:null,package_price:price,bundle_price:allowBundle?bundlePrice(price):null,...(f?{package_weight_grams:f.package_weight_grams,available:p.available&&f.available&&f.active}:{})};}
 export const variantKey=(i:Pick<CartItem,'product_id'|'flavor_id'>)=>`${i.product_id}:${i.flavor_id||''}`;
 export type CartGroup={key:string;item:ResolvedItem;packages:number;bundles:number;total:number;units:number};
