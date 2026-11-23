@@ -5,6 +5,7 @@ export const PRICED_CATALOGS = {
   expressoitaliano: { name: 'Expresso Italiano', path: '/catalogoexpressoitaliano', lineId: '8e6da33f-eb1e-4f1f-a5f8-c52b865c8c78' },
   grego: { name: 'Iogurte Grego', path: '/catalogogrego', lineId: '1bf726e8-67a3-4c67-bf09-e72e4e8862b2' },
   frozen: { name: 'Frozen Yogurt', path: '/catalogofrozen', lineId: '8f0f5e86-6ac8-4be5-a651-a123e4aa1b0c' },
+  saborizante: { name: 'Saborize', path: '/saborizante', lineId: '27e5f2b7-9573-4c12-85e6-2fdf800fda15' },
 } as const;
 
 export type PricedCatalogKey = keyof typeof PRICED_CATALOGS;
@@ -34,11 +35,15 @@ export function formatCatalogPrice(price: number | null): string {
   return price === null ? 'Sob consulta' : (price / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-// Stable product IDs keep the non-water preparations correct after a rename.
+// Stable product IDs identify recipes that do not use a packet-to-water ratio.
 const SPECIAL_PREPARATIONS: Readonly<Record<string, string>> = {
+  'f18ed0ca-4f71-4234-ae30-b3a0d31a387d': 'Use como referência 1 colher de chá para cada 300 ml de calda preparada.',
   '2c9d9e2d-4de7-4aea-a592-845793bcc4eb': '1 pacote para 5 litros de polpa de açaí.',
   '923c7d61-7f32-4d67-952a-e2791dac82c5': '1 pacote para 4 litros de garapa ou outra bebida já doce da sua preferência.',
 };
+
+// The Saborize base has a four-litre recipe even in records without structured preparation.
+const SABORIZE_BASE_ID = 'e197295b-1517-441a-a0b1-9d420e4b1e1c';
 
 // A flavor's explicit water instruction takes precedence over the line default.
 // Return only the short hint, never the full observation or preparation payload.
@@ -49,7 +54,8 @@ export function catalogPreparationLabel(product: Pick<Product, 'id' | 'preparati
   // Prefer the actual instruction over a comparison with the standard recipe.
   const instruction = observation.match(/\b(?:utilize|use|misture|dilua|adicione)\b[^;!?\n]*/)?.[0];
   const match = instruction?.match(waterAmount) ?? observation.match(waterAmount);
-  const litres = match ? Number(match[1].replace(',', '.')) : product.preparation?.waterLitres;
+  const defaultLitres = product.preparation?.waterLitres ?? (product.id === SABORIZE_BASE_ID ? 4 : null);
+  const litres = match ? Number(match[1].replace(',', '.')) : defaultLitres;
   if (typeof litres !== 'number' || !Number.isFinite(litres) || litres <= 0) return null;
   const amount = litres.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
   return `1 pacote para ${amount} ${litres === 1 ? 'litro' : 'litros'} de água.`;

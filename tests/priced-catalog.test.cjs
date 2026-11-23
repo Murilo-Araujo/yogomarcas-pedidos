@@ -34,6 +34,8 @@ const fixture = () => ({
     { id: 'expresso', line_id: PRICED_CATALOGS.expressoitaliano.lineId, name: 'Expresso Italiano', active: true, available: true, has_flavors: true, position: 0, package_price: 99999, sku: 'INTERNAL' },
     { id: 'grego', line_id: PRICED_CATALOGS.grego.lineId, name: 'Iogurte Grego', active: true, available: true, has_flavors: true, position: 1 },
     { id: 'frozen', line_id: PRICED_CATALOGS.frozen.lineId, name: 'Frozen Yogurt', active: true, available: true, has_flavors: true, position: 2 },
+    { id: 'neutral', line_id: PRICED_CATALOGS.saborizante.lineId, name: 'Saborize · Base neutra', active: true, available: true, has_flavors: false, position: 3, package_price: 5095 },
+    { id: 'powders', line_id: PRICED_CATALOGS.saborizante.lineId, name: 'Saborize · Saborizantes', active: true, available: true, has_flavors: true, position: 3 },
     { id: 'drink', line_id: PRICED_CATALOGS.expressoitaliano.lineId, name: 'Yogo Drink', active: true, available: true, has_flavors: false, position: 3, package_price: 2500 },
   ],
   flavors: [
@@ -41,6 +43,7 @@ const fixture = () => ({
     { id: 'baunilha', product_id: 'expresso', name: 'Baunilha', active: true, available: true, position: 0, package_price: 5835 },
     { id: 'inactive', product_id: 'expresso', name: 'Oculto', active: false, available: true, position: 2, package_price: 100 },
     { id: 'natural', product_id: 'grego', name: 'Natural', active: true, available: true, position: 0, package_price: 6590 },
+    { id: 'mint', product_id: 'powders', name: 'Menta', active: true, available: true, position: 0, package_price: 2080 },
     { id: 'blueberry', product_id: 'frozen', name: 'Blueberry', active: true, available: true, position: 0, package_price: 7195 },
   ],
   settings: { whatsapp: 'PRIVATE', minimum_order: 100000 },
@@ -49,10 +52,16 @@ const fixture = () => ({
 const plain = value => JSON.parse(JSON.stringify(value));
 
 test('each URL selects only its active line and reads exact flavor prices in cents', () => {
+  const expected = {
+    expressoitaliano: ['baunilha', 'chocolate', 'drink'],
+    grego: ['natural'],
+    frozen: ['blueberry'],
+    saborizante: ['neutral', 'mint'],
+  };
   for (const key of Object.keys(PRICED_CATALOGS)) {
     const catalog = toPricedCatalog(fixture(), key);
     const ids = catalog.groups.flatMap(group => group.items.map(item => item.id));
-    assert.deepEqual(plain(ids), key === 'expressoitaliano' ? ['baunilha', 'chocolate', 'drink'] : key === 'grego' ? ['natural'] : ['blueberry']);
+    assert.deepEqual(plain(ids), expected[key]);
   }
   assert.equal(toPricedCatalog(fixture(), 'expressoitaliano').groups[0].items[0].price, 5835);
   assert.match(formatCatalogPrice(5835), /^R\$\s58,35$/);
@@ -136,7 +145,7 @@ test('failed or malformed upstream never exposes errors or substitutes stale pri
   }
 });
 
-test('three separate routes are dynamic and use their matching catalog keys', () => {
+test('priced catalog routes are dynamic and use their matching catalog keys', () => {
   for (const [key, definition] of Object.entries(PRICED_CATALOGS)) {
     const code = fs.readFileSync(path.join(__dirname, '..', 'app', definition.path.slice(1), 'page.tsx'), 'utf8');
     assert.match(code, /export const dynamic = 'force-dynamic'/);

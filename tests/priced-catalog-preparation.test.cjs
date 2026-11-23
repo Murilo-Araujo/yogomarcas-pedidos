@@ -48,6 +48,14 @@ test('açaí and Yogo Drink use the requested non-water preparations', () => {
   assert.doesNotMatch(drink, /água/);
 });
 
+test('Saborize distinguishes the base recipe from flavoring dosage in prepared mix', () => {
+  const base = { id: 'e197295b-1517-441a-a0b1-9d420e4b1e1c', preparation: null };
+  assert.equal(catalogPreparationLabel(base), '1 pacote para 4 litros de água.');
+  assert.equal(catalogPreparationLabel({ ...product(3), id: base.id }), '1 pacote para 3 litros de água.');
+  const flavoring = { id: 'f18ed0ca-4f71-4234-ae30-b3a0d31a387d', preparation: null };
+  assert.match(catalogPreparationLabel(flavoring), /1 colher de chá para cada 300 ml de calda preparada/);
+});
+
 test('missing or invalid preparation never invents a dilution', () => {
   for (const preparation of [undefined, null, {}, {waterLitres:0}, {waterLitres:-1}, {waterLitres:NaN}, {waterLitres:Infinity}, {waterLitres:'4'}]) {
     assert.equal(catalogPreparationLabel({ id: 'unknown', preparation }), null);

@@ -22,7 +22,7 @@ function fixture(key, flavors) {
 }
 const names = (source, key) => plain(toPricedCatalog(source, key).groups[0].items.map(item => item.name));
 
-test('all three priced catalogs put neutral first, then naturals, then alphabetic flavors', () => {
+test('all priced catalogs put neutral first, then naturals, then alphabetic flavors', () => {
   for (const key of Object.keys(PRICED_CATALOGS)) {
     const source = fixture(key, [
       flavor('UVA VERDE', 0), flavor('MORANGO', 1), flavor('LICHIA', 99),
