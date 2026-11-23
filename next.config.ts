@@ -7,6 +7,9 @@ const nextConfig: NextConfig = {
   },
   // Activate the bio page at the root once this domain is connected in Vercel.
   ...(process.env.YOGO_STATIC_EXPORT !== '1' ? {
+    async redirects() {
+      return [{ source: '/saborizante', destination: '/catalogosaborize', permanent: true }];
+    },
     async rewrites() {
       return { beforeFiles: [{ source: '/', has: [{ type: 'host' as const, value: 'link.yogomarkets.com.br' }], destination: '/links' }] };
     },

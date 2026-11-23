@@ -5,7 +5,7 @@ export const PRICED_CATALOGS = {
   expressoitaliano: { name: 'Expresso Italiano', path: '/catalogoexpressoitaliano', lineId: '8e6da33f-eb1e-4f1f-a5f8-c52b865c8c78' },
   grego: { name: 'Iogurte Grego', path: '/catalogogrego', lineId: '1bf726e8-67a3-4c67-bf09-e72e4e8862b2' },
   frozen: { name: 'Frozen Yogurt', path: '/catalogofrozen', lineId: '8f0f5e86-6ac8-4be5-a651-a123e4aa1b0c' },
-  saborizante: { name: 'Saborize', path: '/saborizante', lineId: '27e5f2b7-9573-4c12-85e6-2fdf800fda15' },
+  saborizante: { name: 'Saborize', path: '/catalogosaborize', lineId: '27e5f2b7-9573-4c12-85e6-2fdf800fda15' },
 } as const;
 
 export type PricedCatalogKey = keyof typeof PRICED_CATALOGS;
